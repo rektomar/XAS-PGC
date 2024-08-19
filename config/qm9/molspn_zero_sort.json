@@ -1,0 +1,33 @@
+{
+    "dataset": "qm9",
+    "model": "molspn_zero_sort",
+    "model_hyperpars": {
+        "nc": 100,
+        "nd_n": 9,
+        "nk_n": 5,
+        "nk_e": 4,
+        "nl_n": 2,
+        "nl_e": 2,
+        "nr_n": 20,
+        "nr_e": 20,
+        "ns_n": 40,
+        "ns_e": 40,
+        "ni_n": 30,
+        "ni_e": 30,
+        "dc_n": 0.6,
+        "dc_e": 0.6,
+        "regime": "deq",
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hyperpars": {
+        "lr": 0.05,
+        "betas": [
+            0.9,
+            0.82
+        ]
+    },
+    "num_epochs": 200,
+    "batch_size": 256,
+    "seed": 0
+}

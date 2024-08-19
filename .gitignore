@@ -1,0 +1,16 @@
+__pycache__
+data/qm9_perm.pt
+data/qm9_sort.pt
+data/zinc250k_perm.pt
+data/zinc250k_sort.pt
+results
+einsum
+gridsearch.log
+
+qm9.pdf
+qm9.tab
+
+train.pdf
+train.tex
+
+models/_molspn_back.py
