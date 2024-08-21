@@ -1,17 +1,16 @@
 {
     "dataset": "zinc250k",
-    "model": "molspn_back_sort",
+    "model": "molspn_ffnn_sort",
     "model_hyperpars": {
         "nd_n": 38,
         "nk_n": 10,
         "nk_e": 4,
-        "nz": 128,
-        "nh": 512,
+        "nz": 32,
+        "nh": 2048,
         "nl": 5,
-        "nb": 8192,
+        "nb": 16384,
         "nc": 2,
-        "device": "cuda",
-        "regime": "cat"
+        "device": "cuda"
     },
     "optimizer": "adam",
     "optimizer_hyperpars": {

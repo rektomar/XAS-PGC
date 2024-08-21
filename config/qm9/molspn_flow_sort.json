@@ -1,0 +1,36 @@
+{
+    "dataset": "qm9",
+    "model": "molspn_flow_sort",
+    "model_hyperpars": {
+        "nk_e": 4,
+        "nf_e": 10,
+        "nb_e": 1,
+        "sq_e": 3,
+        "hcha_e": [128],
+        "af_e": false,
+        "lu_e": 2,
+        "nd_n": 9,
+        "nk_n": 5,
+        "nf_n": 27,
+        "nb_n": 1,
+        "hgnn_n": [64],
+        "hlin_n": [64],
+        "mask_row_size_list": [1],
+        "mask_row_stride_list": [1],
+        "af_n": false,
+        "nb": 1024,
+        "nc": 2,
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hyperpars": {
+        "lr": 0.001,
+        "betas": [
+            0.9,
+            0.82
+        ]
+    },
+    "num_epochs": 200,
+    "batch_size": 256,
+    "seed": 0
+}

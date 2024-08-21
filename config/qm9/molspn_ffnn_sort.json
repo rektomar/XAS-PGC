@@ -1,6 +1,6 @@
 {
     "dataset": "qm9",
-    "model": "molspn_back_sort",
+    "model": "molspn_ffnn_sort",
     "model_hyperpars": {
         "nd_n": 9,
         "nk_n": 5,
@@ -10,8 +10,7 @@
         "nl": 5,
         "nb": 16384,
         "nc": 2,
-        "device": "cuda",
-        "regime": "cat"
+        "device": "cuda"
     },
     "optimizer": "adam",
     "optimizer_hyperpars": {
@@ -22,7 +21,7 @@
         ],
         "weight_decay": 0e-4
     },
-    "num_epochs": 100,
+    "num_epochs": 200,
     "batch_size": 256,
     "seed": 0
 }

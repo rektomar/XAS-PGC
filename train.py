@@ -25,10 +25,11 @@ if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
     RDLogger.DisableLog('rdApp.*')
 
-    dataset = 'qm9'
+    dataset = 'zinc250k'
     names = [
-        'molspn_back_sort'
-        # 'molspn_zero_sort'
+        'molspn_ffnn_sort',
+        # 'molspn_flow_sort',
+        # 'molspn_zero_sort',
         # 'moflow_sort'
     ]
 
