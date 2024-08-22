@@ -1,13 +1,13 @@
 {
     "dataset": "qm9",
-    "model": "molspn_ffnn_sort",
+    "model": "molspn_conv_sort",
     "model_hyperpars": {
         "nd_n": 9,
         "nk_n": 5,
         "nk_e": 4,
         "nz": 32,
         "nh": 512,
-        "nl": 2,
+        "nl": 5,
         "nb": 16384,
         "nc": 2,
         "device": "cuda"

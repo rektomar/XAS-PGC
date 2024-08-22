@@ -10,6 +10,94 @@ from models.spn_utils import ohe2cat, cat2ohe
 
 # the continuous mixture model is based on the following implementation: https://github.com/AlCorreia/cm-tpm
 
+def ffnn_decoder(ni: int,
+                 no: int,
+                 nl: int,
+                 batch_norm: bool,
+                 final_act: Optional[any]=None
+                 ):
+        nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
+        decoder = nn.Sequential()
+        for i in range(len(nh) - 1):
+            decoder.append(nn.Linear(nh[i], nh[i + 1]))
+            decoder.append(nn.ReLU())
+            if batch_norm:
+                decoder.append(nn.BatchNorm1d(nh[i + 1]))
+        decoder.append(nn.Linear(nh[-1], no))
+        if final_act is not None:
+            decoder.append(final_act)
+        return decoder
+
+def conv_decoder(nz: int,
+                 ns: int,
+                 nc: int,
+                 kernel_size: int
+                 ):
+    decoder = nn.Sequential(
+            # i: (n, ci, ni, ni)
+            # o: (n, co, no, no)
+            # ConvTranspose2d(ci, co, kernel_size, stride, padding)
+            # no = (ni−1) × stride − 2 × padding + (kernel_size − 1) + 1
+
+            # kernel_size=2
+            # no = (ni−1) × stride − 2 × padding + 2
+                # stride=1, padding=0
+                # no = ni+1
+                # stride=2, padding=1
+                # no = (ni−1) × 2
+
+            # (n, ns*8,  2,  2)
+            # (n, ns*8,  2,  2)
+            # (n, ns*8,  2,  2)
+            # (n, ns*8,  2,  2)
+            # (n, ns*8,  2,  2)
+
+            # kernel_size=3
+            # no = (ni−1) × stride − 2 × padding + 3
+                # stride=1, padding=0
+                # no = ni+2
+                # stride=2, padding=1
+                # no = (ni−1) × 2 + 1
+
+            # (n, ns*8,  3,  3)
+            # (n, ns*8,  5,  5)
+            # (n, ns*8,  9,  9)
+            # (n, ns*8, 17, 17)
+            # (n, ns*8, 33, 33)
+
+            # kernel_size=4
+            # no = (ni−1) × stride − 2 × padding + 4
+                # stride=1, padding=0
+                # no = ni+3
+                # stride=2, padding=1
+                # no = (ni−1) × 2 + 2
+
+            # (n, ns*8,  4,  4)
+            # (n, ns*8,  8,  8)
+            # (n, ns*8, 16, 16)
+            # (n, ns*8, 32, 32)
+            # (n, ns*8, 64, 64)
+
+
+            # (n,   nz,  1,  1)
+            nn.ConvTranspose2d(nz,   ns*8, kernel_size, 1, 0, bias=False), # (n, ns*8,  4,  4)
+            nn.BatchNorm2d(ns * 8),
+            nn.ReLU(True),
+            nn.ConvTranspose2d(ns*8, ns*4, kernel_size, 2, 1, bias=False), # (n, ns*4,  8,  8)
+            nn.BatchNorm2d(ns * 4),
+            nn.ReLU(True),
+            # nn.ConvTranspose2d(ns*4, ns*2, kernel_size, 2, 1, bias=False), # (n, ns*2, 16, 16)
+            # nn.BatchNorm2d(ns * 2),
+            # nn.ReLU(True),
+            # nn.ConvTranspose2d(ns*2,   ns, kernel_size, 2, 1, bias=False), # (n,   ns, 32, 32)
+            # nn.BatchNorm2d(ns),
+            # nn.ReLU(True),
+            # nn.ConvTranspose2d(  ns,   nc, kernel_size, 2, 1, bias=False), # (n,   nc, 64, 64)
+            # nn.Tanh()
+            nn.ConvTranspose2d(ns*4,   nc, kernel_size, 2, 1, bias=False), # (n,   nc, 64, 64)
+        )
+    return decoder
+
 class BackFFNN(nn.Module):
     def __init__(self,
                  nd_node: int,
@@ -27,9 +115,9 @@ class BackFFNN(nn.Module):
         self.nd_edge = nd_edge
         self.nk_node = nk_node
         self.nk_edge = nk_edge
-        self.net_back = self._mlp_decoder(nz_back,            nh_back,  nl_back, True )
-        self.net_node = self._mlp_decoder(nh_back//2, nd_node*nk_node,        2, False)
-        self.net_edge = self._mlp_decoder(nh_back//2, nd_edge*nk_edge,        2, False)
+        self.net_back = ffnn_decoder(nz_back,            nh_back,  nl_back, True )
+        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,        2, False)
+        self.net_edge = ffnn_decoder(nh_back//2, nd_edge*nk_edge,        2, False)
         self.device = device
 
     def forward(self, z):                                    # (chunk_size, nz_back)
@@ -41,24 +129,38 @@ class BackFFNN(nn.Module):
         h_edge = h_edge.view(-1, self.nd_edge, self.nk_edge) # (chunk_size, nd_edge, nk_edge)
         return h_node, h_edge
 
-    @staticmethod
-    def _mlp_decoder(ni: int,
-                     no: int,
-                     nl: int,
-                     batch_norm: bool,
-                     final_act: Optional[any]=None
-                     ):
-        nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
-        decoder = nn.Sequential()
-        for i in range(len(nh) - 1):
-            decoder.append(nn.Linear(nh[i], nh[i + 1]))
-            decoder.append(nn.ReLU())
-            if batch_norm:
-                decoder.append(nn.BatchNorm1d(nh[i + 1]))
-        decoder.append(nn.Linear(nh[-1], no))
-        if final_act is not None:
-            decoder.append(final_act)
-        return decoder
+class BackConv(nn.Module):
+    def __init__(self,
+                 nd_node: int,
+                 nd_edge: int,
+                 nk_node: int,
+                 nk_edge: int,
+                 nz_back: int,
+                 nh_back: int,
+                 nl_back: int,
+                 device: Optional[str]='cuda'
+                 ):
+        super(BackConv, self).__init__()
+
+        self.nd_node = nd_node
+        self.nd_edge = nd_edge
+        self.nk_node = nk_node
+        self.nk_edge = nk_edge
+        self.net_back = ffnn_decoder(nz_back,            nh_back,  nl_back, True )
+        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,        2, False)
+        self.net_edge = conv_decoder(nh_back//2, nd_node, nk_edge, 3)
+        self.device = device
+
+    def forward(self, z):                                    # (chunk_size, nz_back)
+        h_back = self.net_back(z)                            # (chunk_size, nh_back)
+        h_node, h_edge = torch.chunk(h_back, 2, 1)           # (chunk_size, nh_back/2), (chunk_size, nh_back/2)
+        h_edge = h_edge.unsqueeze(2).unsqueeze(3)            # (chunk_size, nh_back/2, 1, 1)
+        h_node = self.net_node(h_node)                       # (chunk_size, nd_node*nk_node)
+        h_edge = self.net_edge(h_edge)                       # (chunk_size, nk_edge, nd_node, nd_node)
+        h_edge = torch.movedim(h_edge, 1, -1)                # (chunk_size, nd_node, nd_node, nk_edge)
+        h_node = h_node.view(-1, self.nd_node, self.nk_node) # (chunk_size, nd_node, nk_node)
+        h_edge = h_edge.view(-1, self.nd_edge, self.nk_edge) # (chunk_size, nd_edge, nk_edge)
+        return h_node, h_edge
 
 class BackFlow(nn.Module):
     def __init__(self,
@@ -216,10 +318,10 @@ class CategoricalDecoder(nn.Module):
                  device: Optional[str]='cuda'
                  ):
         super(CategoricalDecoder, self).__init__()
-        self.nd_node = nd_node
-        self.nd_edge = nd_edge
-        self.nk_node = nk_node
-        self.nk_edge = nk_edge
+        # self.nd_node = nd_node
+        # self.nd_edge = nd_edge
+        # self.nk_node = nk_node
+        # self.nk_edge = nk_edge
         self.network = network
         self.device = device
 
@@ -332,6 +434,52 @@ class MolSPNFFNNSort(nn.Module):
 
         return cat2ohe(x, a, self.nk_node, self.nk_edge)
 
+class MolSPNConvSort(nn.Module):
+    def __init__(self,
+                 nd_n: int,
+                 nk_n: int,
+                 nk_e: int,
+                 nz: int,
+                 nh: int,
+                 nl: int,
+                 nb: int,
+                 nc: int,
+                 device: Optional[str]='cuda'
+                 ):
+        super(MolSPNConvSort, self).__init__()
+        nd_e = nd_n ** 2
+
+        self.nd_node = nd_n
+        self.nd_edge = nd_e
+        self.nk_node = nk_n
+        self.nk_edge = nk_e
+
+        backbone = BackConv(nd_n, nd_e, nk_n, nk_e, nz, nh, nl)
+        self.network = ContinuousMixture(
+            decoder=CategoricalDecoder(nd_n, nd_e, nk_n, nk_e, backbone, device=device),
+            sampler=GaussianSampler(nz, nb, device=device),
+            num_chunks=nc,
+            device=device
+        )
+
+        self.device = device
+        self.to(device)
+
+    def forward(self, x_ohe, a_ohe):
+        x = x_ohe.to(self.device)
+        a = a_ohe.to(self.device)
+        x, a = ohe2cat(x, a)
+        return self.network(x, a.view(-1, self.nd_edge))
+
+    def logpdf(self, x, a):
+        return self(x, a).mean()
+
+    def sample(self, num_samples):
+        x, a = self.network.sample(num_samples)
+        x = x.cpu()
+        a = a.cpu()
+        return cat2ohe(x, a.view(-1, self.nd_node, self.nd_node), self.nk_node, self.nk_edge)
+
 
 class MolSPNFlowSort(nn.Module):
     def __init__(self,
@@ -397,5 +545,6 @@ class MolSPNFlowSort(nn.Module):
 
 MODELS = {
     'molspn_ffnn_sort': MolSPNFFNNSort,
+    'molspn_conv_sort': MolSPNConvSort,
     'molspn_flow_sort': MolSPNFlowSort,
 }
