@@ -31,71 +31,50 @@ def ffnn_decoder(ni: int,
 def conv_decoder(nz: int,
                  ns: int,
                  nc: int,
-                 kernel_size: int
+                 arch: int,
                  ):
-    decoder = nn.Sequential(
-            # i: (n, ci, ni, ni)
-            # o: (n, co, no, no)
-            # ConvTranspose2d(ci, co, kernel_size, stride, padding)
-            # no = (ni−1) × stride − 2 × padding + (kernel_size − 1) + 1
+    if arch == 0:
+        decoder = nn.Sequential(
+                # (n,   nz,  1,  1)
+                nn.ConvTranspose2d(nz,   ns*8, 3, 1, 0, bias=False), # (n, ns*8,  3,  3)
+                nn.BatchNorm2d(ns*8),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(ns*8, ns*4, 3, 2, 1, bias=False), # (n, ns*4,  5,  5)
+                nn.BatchNorm2d(ns*4),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(ns*4,   nc, 3, 2, 1, bias=False), # (n,   nc,  9,  9)
+            )
+    else:
+        decoder = nn.Sequential(
+                # (n,   nz,  1,  1)
+                nn.ConvTranspose2d(nz,   ns*8, 4, 3, 0, bias=False), # (n, ns*8,  3,  3)
+                nn.BatchNorm2d(ns*8),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(ns*8, ns*4, 4, 3, 0, bias=False), # (n, ns*4,  5,  5)
+                nn.BatchNorm2d(ns*4),
+                nn.ReLU(True),
+                nn.ConvTranspose2d(ns*4,   nc, 4, 3, 1, bias=False), # (n,   nc,  9,  9)
+            )
+        # decoder = nn.Sequential(
+        #         # (n,   nz,  1,  1)
+        #         nn.ConvTranspose2d(nz,   ns*8, 3, 1, 0, bias=False), # (n, ns*8,  3,  3)
+        #         nn.BatchNorm2d(ns*8),
+        #         nn.ReLU(True),
+        #         nn.ConvTranspose2d(ns*8, ns*6, 3, 2, 1, bias=False), # (n, ns*6,  5,  5)
+        #         nn.BatchNorm2d(ns*6),
+        #         nn.ReLU(True),
+        #         nn.ConvTranspose2d(ns*6, ns*4, 3, 2, 1, bias=False), # (n, ns*4,  9, 9)
+        #         nn.BatchNorm2d(ns*4),
+        #         nn.ReLU(True),
+        #         nn.ConvTranspose2d(ns*4, ns*2, 3, 2, 1, bias=False), # (n, ns*2, 17, 17)
+        #         nn.BatchNorm2d(ns*2),
+        #         nn.ReLU(True),
+        #         nn.ConvTranspose2d(ns*2,   ns, 3, 2, 1, bias=False), # (n,   ns, 33, 33)
+        #         nn.BatchNorm2d(ns),
+        #         nn.ReLU(True),
+        #         nn.ConvTranspose2d(  ns,   nc, 6, 1, 0, bias=False), # (n,   nc, 38, 38)
+        #     )
 
-            # kernel_size=2
-            # no = (ni−1) × stride − 2 × padding + 2
-                # stride=1, padding=0
-                # no = ni+1
-                # stride=2, padding=1
-                # no = (ni−1) × 2
-
-            # (n, ns*8,  2,  2)
-            # (n, ns*8,  2,  2)
-            # (n, ns*8,  2,  2)
-            # (n, ns*8,  2,  2)
-            # (n, ns*8,  2,  2)
-
-            # kernel_size=3
-            # no = (ni−1) × stride − 2 × padding + 3
-                # stride=1, padding=0
-                # no = ni+2
-                # stride=2, padding=1
-                # no = (ni−1) × 2 + 1
-
-            # (n, ns*8,  3,  3)
-            # (n, ns*8,  5,  5)
-            # (n, ns*8,  9,  9)
-            # (n, ns*8, 17, 17)
-            # (n, ns*8, 33, 33)
-
-            # kernel_size=4
-            # no = (ni−1) × stride − 2 × padding + 4
-                # stride=1, padding=0
-                # no = ni+3
-                # stride=2, padding=1
-                # no = (ni−1) × 2 + 2
-
-            # (n, ns*8,  4,  4)
-            # (n, ns*8,  8,  8)
-            # (n, ns*8, 16, 16)
-            # (n, ns*8, 32, 32)
-            # (n, ns*8, 64, 64)
-
-
-            # (n,   nz,  1,  1)
-            nn.ConvTranspose2d(nz,   ns*8, kernel_size, 1, 0, bias=False), # (n, ns*8,  4,  4)
-            nn.BatchNorm2d(ns * 8),
-            nn.ReLU(True),
-            nn.ConvTranspose2d(ns*8, ns*4, kernel_size, 2, 1, bias=False), # (n, ns*4,  8,  8)
-            nn.BatchNorm2d(ns * 4),
-            nn.ReLU(True),
-            # nn.ConvTranspose2d(ns*4, ns*2, kernel_size, 2, 1, bias=False), # (n, ns*2, 16, 16)
-            # nn.BatchNorm2d(ns * 2),
-            # nn.ReLU(True),
-            # nn.ConvTranspose2d(ns*2,   ns, kernel_size, 2, 1, bias=False), # (n,   ns, 32, 32)
-            # nn.BatchNorm2d(ns),
-            # nn.ReLU(True),
-            # nn.ConvTranspose2d(  ns,   nc, kernel_size, 2, 1, bias=False), # (n,   nc, 64, 64)
-            # nn.Tanh()
-            nn.ConvTranspose2d(ns*4,   nc, kernel_size, 2, 1, bias=False), # (n,   nc, 64, 64)
-        )
     return decoder
 
 class BackFFNN(nn.Module):
@@ -107,6 +86,8 @@ class BackFFNN(nn.Module):
                  nz_back: int,
                  nh_back: int,
                  nl_back: int,
+                 nl_node: int,
+                 nl_edge: int,
                  device: Optional[str]='cuda'
                  ):
         super(BackFFNN, self).__init__()
@@ -116,8 +97,8 @@ class BackFFNN(nn.Module):
         self.nk_node = nk_node
         self.nk_edge = nk_edge
         self.net_back = ffnn_decoder(nz_back,            nh_back,  nl_back, True )
-        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,        2, False)
-        self.net_edge = ffnn_decoder(nh_back//2, nd_edge*nk_edge,        2, False)
+        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,  nl_node, False)
+        self.net_edge = ffnn_decoder(nh_back//2, nd_edge*nk_edge,  nl_edge, False)
         self.device = device
 
     def forward(self, z):                                    # (chunk_size, nz_back)
@@ -138,6 +119,9 @@ class BackConv(nn.Module):
                  nz_back: int,
                  nh_back: int,
                  nl_back: int,
+                 nl_node: int,
+                 ns_edge: int,
+                 arch: int,
                  device: Optional[str]='cuda'
                  ):
         super(BackConv, self).__init__()
@@ -147,8 +131,8 @@ class BackConv(nn.Module):
         self.nk_node = nk_node
         self.nk_edge = nk_edge
         self.net_back = ffnn_decoder(nz_back,            nh_back,  nl_back, True )
-        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,        2, False)
-        self.net_edge = conv_decoder(nh_back//2, nd_node, nk_edge, 3)
+        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,  nl_node, False)
+        self.net_edge = conv_decoder(nh_back//2, ns_edge, nk_edge, arch)
         self.device = device
 
     def forward(self, z):                                    # (chunk_size, nz_back)
@@ -310,18 +294,10 @@ class GaussianQMCSampler:
 
 class CategoricalDecoder(nn.Module):
     def __init__(self,
-                 nd_node: int,
-                 nd_edge: int,
-                 nk_node: int,
-                 nk_edge: int,
                  network: nn.Module,
                  device: Optional[str]='cuda'
                  ):
         super(CategoricalDecoder, self).__init__()
-        # self.nd_node = nd_node
-        # self.nd_edge = nd_edge
-        # self.nk_node = nk_node
-        # self.nk_edge = nk_edge
         self.network = network
         self.device = device
 
@@ -390,7 +366,9 @@ class MolSPNFFNNSort(nn.Module):
                  nk_e: int,
                  nz: int,
                  nh: int,
-                 nl: int,
+                 nl_b: int,
+                 nl_n: int,
+                 nl_e: int,
                  nb: int,
                  nc: int,
                  device: Optional[str]='cuda'
@@ -403,9 +381,9 @@ class MolSPNFFNNSort(nn.Module):
         self.nk_node = nk_n
         self.nk_edge = nk_e
 
-        backbone = BackFFNN(nd_n, nd_e, nk_n, nk_e, nz, nh, nl)
+        backbone = BackFFNN(nd_n, nd_e, nk_n, nk_e, nz, nh, nl_b, nl_n, nl_e)
         self.network = ContinuousMixture(
-            decoder=CategoricalDecoder(nd_n, nd_e, nk_n, nk_e, backbone, device=device),
+            decoder=CategoricalDecoder(backbone, device=device),
             sampler=GaussianSampler(nz, nb, device=device),
             num_chunks=nc,
             device=device
@@ -441,9 +419,12 @@ class MolSPNConvSort(nn.Module):
                  nk_e: int,
                  nz: int,
                  nh: int,
-                 nl: int,
+                 nl_b: int,
                  nb: int,
                  nc: int,
+                 nl_n: int,
+                 ns_e: int,
+                 arch: int,
                  device: Optional[str]='cuda'
                  ):
         super(MolSPNConvSort, self).__init__()
@@ -454,9 +435,9 @@ class MolSPNConvSort(nn.Module):
         self.nk_node = nk_n
         self.nk_edge = nk_e
 
-        backbone = BackConv(nd_n, nd_e, nk_n, nk_e, nz, nh, nl)
+        backbone = BackConv(nd_n, nd_e, nk_n, nk_e, nz, nh, nl_b, nl_n, ns_e, arch)
         self.network = ContinuousMixture(
-            decoder=CategoricalDecoder(nd_n, nd_e, nk_n, nk_e, backbone, device=device),
+            decoder=CategoricalDecoder(backbone, device=device),
             sampler=GaussianSampler(nz, nb, device=device),
             num_chunks=nc,
             device=device
@@ -519,7 +500,7 @@ class MolSPNFlowSort(nn.Module):
             learn_dist, device
             )
         self.network = ContinuousMixture(
-            decoder=CategoricalDecoder(nd_n, nd_n**2, nk_n, nk_e, backbone, device=device),
+            decoder=CategoricalDecoder(backbone, device=device),
             sampler=GaussianQMCSampler(nd_n*nk_n + nd_n**2*nk_e, nb, device=device),
             num_chunks=nc,
             device=device
@@ -548,3 +529,28 @@ MODELS = {
     'molspn_conv_sort': MolSPNConvSort,
     'molspn_flow_sort': MolSPNFlowSort,
 }
+
+
+if __name__ == '__main__':
+
+    kernel_size = 4
+    output_padding = 0
+    padding = 0
+    stride = 3
+    no = 1
+    no = (no-1) * stride - 2 * padding + (kernel_size - 1) + output_padding + 1
+    print(no)
+
+    kernel_size = 4
+    padding = 0
+    stride = 3
+    for _ in range(1):
+        no = (no-1) * stride - 2 * padding + (kernel_size - 1) + 1
+        print(no)
+
+    kernel_size = 4
+    output_padding = 0
+    padding = 1
+    stride = 3
+    no = (no-1) * stride - 2 * padding + (kernel_size - 1) + output_padding + 1
+    print(no)
