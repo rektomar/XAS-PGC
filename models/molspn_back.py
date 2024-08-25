@@ -16,7 +16,10 @@ def ffnn_decoder(ni: int,
                  batch_norm: bool,
                  final_act: Optional[any]=None
                  ):
-        nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
+        if ni != no:
+            nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
+        else:
+            nh = torch.full((nl, ), ni)
         decoder = nn.Sequential()
         for i in range(len(nh) - 1):
             decoder.append(nn.Linear(nh[i], nh[i + 1]))
@@ -130,14 +133,15 @@ class BackConv(nn.Module):
         self.nd_edge = nd_edge
         self.nk_node = nk_node
         self.nk_edge = nk_edge
-        self.net_back = ffnn_decoder(nz_back,            nh_back,  nl_back, True )
-        self.net_node = ffnn_decoder(nh_back//2, nd_node*nk_node,  nl_node, False)
-        self.net_edge = conv_decoder(nh_back//2, ns_edge, nk_edge, arch)
+        self.net_back = ffnn_decoder(nz_back, nh_back, nl_back, True )
+        self.net_node = ffnn_decoder(nd_node*nk_node, nd_node*nk_node, nl_node, False)
+        self.net_edge = conv_decoder(nd_edge*nk_edge, ns_edge, nk_edge, arch)
         self.device = device
 
     def forward(self, z):                                    # (chunk_size, nz_back)
         h_back = self.net_back(z)                            # (chunk_size, nh_back)
-        h_node, h_edge = torch.chunk(h_back, 2, 1)           # (chunk_size, nh_back/2), (chunk_size, nh_back/2)
+        # h_node, h_edge = torch.chunk(h_back, 2, 1)           # (chunk_size, nh_back/2), (chunk_size, nh_back/2)
+        h_node, h_edge = h_back[:, :self.nd_node*self.nk_node], h_back[:, self.nd_node*self.nk_node:]
         h_edge = h_edge.unsqueeze(2).unsqueeze(3)            # (chunk_size, nh_back/2, 1, 1)
         h_node = self.net_node(h_node)                       # (chunk_size, nd_node*nk_node)
         h_edge = self.net_edge(h_edge)                       # (chunk_size, nk_edge, nd_node, nd_node)
@@ -417,8 +421,6 @@ class MolSPNConvSort(nn.Module):
                  nd_n: int,
                  nk_n: int,
                  nk_e: int,
-                 nz: int,
-                 nh: int,
                  nl_b: int,
                  nb: int,
                  nc: int,
@@ -434,6 +436,9 @@ class MolSPNConvSort(nn.Module):
         self.nd_edge = nd_e
         self.nk_node = nk_n
         self.nk_edge = nk_e
+
+        nz = nd_n*nk_n + nd_e*nk_e
+        nh = nz
 
         backbone = BackConv(nd_n, nd_e, nk_n, nk_e, nz, nh, nl_b, nl_n, ns_e, arch)
         self.network = ContinuousMixture(
@@ -529,28 +534,3 @@ MODELS = {
     'molspn_conv_sort': MolSPNConvSort,
     'molspn_flow_sort': MolSPNFlowSort,
 }
-
-
-if __name__ == '__main__':
-
-    kernel_size = 4
-    output_padding = 0
-    padding = 0
-    stride = 3
-    no = 1
-    no = (no-1) * stride - 2 * padding + (kernel_size - 1) + output_padding + 1
-    print(no)
-
-    kernel_size = 4
-    padding = 0
-    stride = 3
-    for _ in range(1):
-        no = (no-1) * stride - 2 * padding + (kernel_size - 1) + 1
-        print(no)
-
-    kernel_size = 4
-    output_padding = 0
-    padding = 1
-    stride = 3
-    no = (no-1) * stride - 2 * padding + (kernel_size - 1) + output_padding + 1
-    print(no)
