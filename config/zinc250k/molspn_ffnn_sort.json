@@ -2,26 +2,28 @@
     "dataset": "zinc250k",
     "model": "molspn_ffnn_sort",
     "model_hyperpars": {
-        "nd_n": 38,
-        "nk_n": 10,
-        "nk_e": 4,
-        "nz": 64,
-        "nh": 4096,
-        "nl": 7,
+        "nd_nx": 38,
+        "nk_nx": 10,
+        "nk_ex": 4,
+        "nd_nz": 38,
+        "nk_nz": 10,
+        "nk_ez": 4,
+        "nh_n": 128,
+        "nh_e": 128,
+        "nl_b": 2,
+        "nl_n": 2,
+        "nl_e": 2,
         "nb": 16384,
         "nc": 2,
+        "tw": false,
         "device": "cuda"
     },
     "optimizer": "adam",
     "optimizer_hyperpars": {
         "lr": 0.001,
-        "betas": [
-            0.9,
-            0.999
-        ],
         "weight_decay": 0e-4
     },
     "num_epochs": 200,
-    "batch_size": 256,
+    "batch_size": 128,
     "seed": 0
 }
