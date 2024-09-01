@@ -1,21 +1,22 @@
 {
     "dataset": "qm9",
-    "model": "molspn_ffnn_sort",
+    "model": "molspn_tran_sort",
     "model_hyperpars": {
-        "nd_nx": 9,
         "nk_nx": 5,
         "nk_ex": 4,
         "nd_nz": 9,
         "nk_nz": 5,
         "nk_ez": 4,
-        "nh_n": 64,
+        "mh_n": 256,
+        "mh_e": 64,
+        "n_head": 8,
+        "nh_n": 256,
         "nh_e": 128,
-        "nl_b": 3,
-        "nl_n": 10,
-        "nl_e": 4,
-        "nb": 16384,
+        "df_n": 256,
+        "df_e": 128,
+        "nl": 5,
+        "nb": 4096,
         "nc": 2,
-        "tw": false,
         "device": "cuda"
     },
     "optimizer": "adam",
@@ -24,6 +25,6 @@
         "weight_decay": 0e-4
     },
     "num_epochs": 200,
-    "batch_size": 256,
+    "batch_size": 1024,
     "seed": 0
 }

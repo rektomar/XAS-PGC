@@ -6,7 +6,7 @@ import models.moflow as mf
 from torch.distributions import Categorical
 from typing import Callable, Optional, List
 from models.spn_utils import ohe2cat, cat2ohe
-
+from models.graph_transformer import GraphTransformer
 
 def ffnn_decoder(ni: int,
                  no: int,
@@ -552,8 +552,48 @@ class MolSPNFlowSort(nn.Module):
         a = a.cpu()
         return cat2ohe(x, a.view(-1, self.nd_node, self.nd_node), self.nk_node, self.nk_edge)
 
+class MolSPNTranSort(nn.Module):
+    def __init__(self,
+                 nk_nx: int,
+                 nk_ex: int,
+                 nd_nz: int,
+                 nk_nz: int,
+                 nk_ez: int,
+                 mh_n: int,
+                 mh_e: int,
+                 n_head: int,
+                 nh_n: int,
+                 nh_e: int,
+                 df_n: int,
+                 df_e: int,
+                 nl: int,
+                 nb: int,
+                 nc: int,
+                 device: Optional[str]='cuda'
+                 ):
+        super(MolSPNTranSort, self).__init__()
+
+        backbone = GraphTransformer(nl, nk_nx, nk_ex, mh_n, mh_e, n_head, nh_n, nh_e, df_n, df_e)
+        self.network = ContinuousMixture(
+            CategoricalDecoder(backbone, nc, device),
+            CategoricalSampler(nd_nz, nk_nz, nk_ez, nb, device=device),
+            device
+        )
+        self.device = device
+        self.to(device)
+
+    def forward(self, x, a):
+        return self.network(x.to(self.device), a.to(self.device))
+
+    def logpdf(self, x, a):
+        return self(x, a).mean()
+
+    def sample(self, num_samples):
+        return self.network.sample(num_samples)
+
 MODELS = {
     'molspn_ffnn_sort': MolSPNFFNNSort,
     'molspn_conv_sort': MolSPNConvSort,
     'molspn_flow_sort': MolSPNFlowSort,
+    'molspn_tran_sort': MolSPNTranSort,
 }

@@ -56,7 +56,7 @@ def train(
         verbose=False,
         metric_type='score'
     ):
-    optimizer = optim.Adam(model.parameters(), **hyperpars['optimizer_hyperpars'])
+    optimizer = optim.AdamW(model.parameters(), **hyperpars['optimizer_hyperpars'])
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.1)
 
     lookahead_counter = num_nonimproving_epochs
