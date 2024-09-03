@@ -8,12 +8,12 @@
         "nk_e": 4,
         "nl_n": 3,
         "nl_e": 3,
-        "nr_n": 80,
-        "nr_e": 80,
-        "ns_n": 70,
-        "ns_e": 70,
-        "ni_n": 30,
-        "ni_e": 30,
+        "nr_n": 40,
+        "nr_e": 40,
+        "ns_n": 40,
+        "ns_e": 40,
+        "ni_n": 50,
+        "ni_e": 50,
         "dc_n": 0.6,
         "dc_e": 0.6,
         "regime": "cat",
@@ -27,7 +27,7 @@
             0.999
         ]
     },
-    "num_epochs": 200,
-    "batch_size": 256,
+    "num_epochs": 1000,
+    "batch_size": 512,
     "seed": 0
 }

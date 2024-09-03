@@ -15,7 +15,8 @@ IGNORED_HYPERPARS = [
     'mask_row_size_list',
     'optimizer',
     'af_e',
-    'af_e'
+    'af_e',
+    'max_atoms'
 ]
 
 

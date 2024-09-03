@@ -5,7 +5,7 @@ import torch.nn as nn
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
 from utils.graphs import flatten_graph, unflatt_graph
-from models.spn_utils import ohe2cat, cat2ohe
+from models.utils import ohe2cat, cat2ohe
 
 
 class MolSPNZeroCore(nn.Module):
