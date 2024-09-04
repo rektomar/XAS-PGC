@@ -1,0 +1,26 @@
+{
+    "dataset": "zinc250k",
+    "model": "molspn_vaef_sort",
+    "model_hyperpars": {
+        "nd_nx": 38,
+        "nk_nx": 10,
+        "nk_ex": 4,
+        "nd_nz": 10,
+        "nk_nz": 10,
+        "nk_ez": 4,
+        "nh_n": 512,
+        "nh_e": 256,
+        "nl_b": 2,
+        "nl_n": 2,
+        "nl_e": 2,
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hyperpars": {
+        "lr": 0.0002,
+        "weight_decay": 0e-4
+    },
+    "num_epochs": 200,
+    "batch_size": 256,
+    "seed": 0
+}

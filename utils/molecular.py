@@ -19,14 +19,17 @@ def mol2x(mol, max_atom, atom_list):
     return atom_tensor
 
 def mol2a(mol, max_atom):
-    bond_tensor = torch.zeros(4, max_atom, max_atom, dtype=torch.int8)
+    bond_tensor = torch.zeros(max_atom, max_atom, 4, dtype=torch.int8)
+    mask_tensor = torch.zeros(max_atom, max_atom, 4, dtype=torch.bool)
     for bond in mol.GetBonds():
         c = BOND_ENCODER[bond.GetBondType()]
         i = bond.GetBeginAtomIdx()
         j = bond.GetEndAtomIdx()
-        bond_tensor[c, i, j] = 1.0
-        bond_tensor[c, j, i] = 1.0
-    bond_tensor[3, ~torch.sum(bond_tensor, 0, dtype=torch.bool)] = 1
+        bond_tensor[i, j, c] = 1.0
+        bond_tensor[j, i, c] = 1.0
+    mask_tensor[:, :, 3] = ~bond_tensor.sum(2, dtype=torch.bool)
+    mask_tensor[range(max_atom), range(max_atom), 3] = 0
+    bond_tensor[mask_tensor] = 1
     return bond_tensor
 
 def mol2g(mol, max_atom, atom_list):
@@ -37,14 +40,14 @@ def mol2g(mol, max_atom, atom_list):
 def g2mol(x, a, atom_list):
     mol = Chem.RWMol()
 
-    atoms = torch.argmax(x, axis=1)
+    atoms = torch.argmax(x, axis=-1)
     atoms_exist = atoms != len(atom_list) - 1
     atoms = atoms[atoms_exist]
 
     for atom in atoms:
         mol.AddAtom(Chem.Atom(atom_list[atom]))
 
-    bonds = torch.argmax(a, axis=0)
+    bonds = torch.argmax(a, axis=-1)
     bonds = bonds[atoms_exist, :][:, atoms_exist]
     for start, end in zip(*torch.nonzero(bonds < 3, as_tuple=True)):
         if start > end:

@@ -1,25 +1,30 @@
+import math
 import torch
 import torch.nn as nn
 import models.moflow as mf
 
+from torch.distributions import Categorical, Normal
 from typing import Optional, List
 
 
 def cat2ohe(x, a, num_node_types, num_edge_types):
     x = torch.nn.functional.one_hot(x.to(torch.int64), num_classes=num_node_types)
     a = torch.nn.functional.one_hot(a.to(torch.int64), num_classes=num_edge_types)
-
-    a = torch.movedim(a, -1, 1)
-
     return x, a
 
 def ohe2cat(x, a):
-    x = torch.argmax(x, dim=2)
-    a = torch.argmax(a, dim=1)
+    x = torch.argmax(x, dim=-1)
+    a = torch.argmax(a, dim=-1)
     return x, a
 
+def zero_diagonal(a, device):
+    bs, nd_node, _, nk_edge = a.shape
+    mask = torch.eye(nd_node, dtype=bool, device=device)
+    mask = mask.unsqueeze(0).unsqueeze(3).expand(bs, -1, -1, nk_edge)
+    a[mask] = 0.
+    return a
 
-def ffnn_decoder(ni: int,
+def ffnn_network(ni: int,
                  no: int,
                  nl: int,
                  batch_norm: bool,
@@ -29,24 +34,24 @@ def ffnn_decoder(ni: int,
             nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
         else:
             nh = torch.full((nl, ), ni)
-        decoder = nn.Sequential()
+        network = nn.Sequential()
         for i in range(len(nh) - 1):
-            decoder.append(nn.Linear(nh[i], nh[i + 1]))
-            decoder.append(nn.ReLU())
+            network.append(nn.Linear(nh[i], nh[i + 1]))
+            network.append(nn.ReLU())
             if batch_norm:
-                decoder.append(nn.BatchNorm1d(nh[i + 1]))
-        decoder.append(nn.Linear(nh[-1], no))
+                network.append(nn.BatchNorm1d(nh[i + 1]))
+        network.append(nn.Linear(nh[-1], no))
         if final_act is not None:
-            decoder.append(final_act)
-        return decoder
+            network.append(final_act)
+        return network
 
-def conv_decoder(nz: int,
+def conv_network(nz: int,
                  ns: int,
                  nc: int,
                  arch: int,
                  ):
     if arch == 0:
-        decoder = nn.Sequential(
+        network = nn.Sequential(
                 # (n,   nz,  1,  1)
                 nn.ConvTranspose2d(nz,   ns*8, 3, 1, 0, bias=False), # (n, ns*8,  3,  3)
                 nn.BatchNorm2d(ns*8),
@@ -57,7 +62,7 @@ def conv_decoder(nz: int,
                 nn.ConvTranspose2d(ns*4,   nc, 3, 2, 1, bias=False), # (n,   nc,  9,  9)
             )
     else:
-        decoder = nn.Sequential(
+        network = nn.Sequential(
                 # (n,   nz,  1,  1)
                 nn.ConvTranspose2d(nz,   ns*8, 4, 3, 0, bias=False), # (n, ns*8,  3,  3)
                 nn.BatchNorm2d(ns*8),
@@ -67,7 +72,7 @@ def conv_decoder(nz: int,
                 nn.ReLU(True),
                 nn.ConvTranspose2d(ns*4,   nc, 4, 3, 1, bias=False), # (n,   nc,  9,  9)
             )
-        # decoder = nn.Sequential(
+        # network = nn.Sequential(
         #         # (n,   nz,  1,  1)
         #         nn.ConvTranspose2d(nz,   ns*8, 3, 1, 0, bias=False), # (n, ns*8,  3,  3)
         #         nn.BatchNorm2d(ns*8),
@@ -87,10 +92,64 @@ def conv_decoder(nz: int,
         #         nn.ConvTranspose2d(  ns,   nc, 6, 1, 0, bias=False), # (n,   nc, 38, 38)
         #     )
 
-    return decoder
+    return network
 
 
-class BackFFNN(nn.Module):
+class EncoderFFNN(nn.Module):
+    def __init__(self,
+                 nd_node_x: int,
+                 nk_node_x: int,
+                 nk_edge_x: int,
+                 nd_node_z: int,
+                 nk_node_z: int,
+                 nk_edge_z: int,
+                 nh_node: int,
+                 nh_edge: int,
+                 nl_back: int,
+                 nl_node: int,
+                 nl_edge: int,
+                 nz_mult: Optional[int]=2,
+                 device: Optional[str]='cuda'
+                 ):
+        super(EncoderFFNN, self).__init__()
+
+        self.nd_node_x = nd_node_x
+        self.nk_node_x = nk_node_x
+        self.nk_edge_x = nk_edge_x
+
+        self.nd_node_z = nd_node_z
+        self.nk_node_z = nk_node_z
+        self.nk_edge_z = nk_edge_z
+
+        self.nh_node = nh_node
+        self.nh_edge = nh_edge
+
+        nz_node = nz_mult*nd_node_z   *nk_node_z
+        nz_edge = nz_mult*nd_node_z**2*nk_edge_z
+
+        self.nz_node = nz_node
+
+        self.net_node = ffnn_network(nd_node_x   *nk_node_x, nh_node,  nl_node, True, nn.ReLU())
+        self.net_edge = ffnn_network(nd_node_x**2*nk_edge_x, nh_edge,  nl_edge, True, nn.ReLU())
+        self.net_back = ffnn_network(nh_node+nh_edge, nz_node+nz_edge, nl_back, True)
+        self.device = device
+
+    def forward(self, x_node, x_edge):                                              # (bs, nd_node_x,  nk_node_x), (bs, nd_node_x, nd_node_x, nk_edge_x)
+        x_node = x_node.reshape(-1, self.nd_node_x   *self.nk_node_x)               # (bs, nd_node_x  *nk_node_x)
+        x_edge = x_edge.reshape(-1, self.nd_node_x**2*self.nk_edge_x)               # (bs, nd_node_x^2*nk_edge_x)
+        h_node = self.net_node(x_node)                                              # (bs, nh_node)
+        h_edge = self.net_edge(x_edge)                                              # (bs, nh_edge)
+        h = torch.cat((h_node, h_edge), dim=1)                                      # (bs, nh_node + nh_edge)
+        h_back = self.net_back(h)                                                   # (bs, nz_node + nz_edge)
+        h_node = h_back[:, :self.nz_node]                                           # (bs, nz_node)
+        h_edge = h_back[:, self.nz_node:]                                           # (bs, nz_edge)
+        h_node = h_node.reshape(-1, self.nd_node_z, self.nk_node_z)                 # (nz_mult*bs, nd_node_z, nk_node_z)
+        h_edge = h_edge.reshape(-1, self.nd_node_z, self.nd_node_z, self.nk_edge_z) # (nz_mult*bs, nd_node_z, nd_node_z, nk_edge_z)
+        h_edge = zero_diagonal(h_edge, self.device)
+        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
+        return h_node, h_edge
+
+class DecoderFFNN(nn.Module):
     def __init__(self,
                  nd_node_z: int,
                  nk_node_z: int,
@@ -105,7 +164,7 @@ class BackFFNN(nn.Module):
                  nl_edge: int,
                  device: Optional[str]='cuda'
                  ):
-        super(BackFFNN, self).__init__()
+        super(DecoderFFNN, self).__init__()
 
         self.nd_node_z = nd_node_z
         self.nk_node_z = nk_node_z
@@ -121,9 +180,9 @@ class BackFFNN(nn.Module):
         nz_node = nd_node_z   *nk_node_z
         nz_edge = nd_node_z**2*nk_edge_z
 
-        self.net_back = ffnn_decoder(nz_node+nz_edge,        nh_node+nh_edge,  nl_back, True, nn.ReLU())
-        self.net_node = ffnn_decoder(        nh_node, nd_node_x   *nk_node_x,  nl_node, True)
-        self.net_edge = ffnn_decoder(        nh_edge, nd_node_x**2*nk_edge_x,  nl_edge, True)
+        self.net_back = ffnn_network(nz_node+nz_edge,        nh_node+nh_edge,  nl_back, True, nn.ReLU())
+        self.net_node = ffnn_network(        nh_node, nd_node_x   *nk_node_x,  nl_node, True)
+        self.net_edge = ffnn_network(        nh_edge, nd_node_x**2*nk_edge_x,  nl_edge, True)
         self.device = device
 
     def forward(self, z_node, z_edge):                                           # (chunk_size, nd_node_z,  nk_node_z), (chunk_size, nd_node_z, nd_node_z, nk_edge_z)
@@ -137,7 +196,11 @@ class BackFFNN(nn.Module):
         h_edge = self.net_edge(h_edge)                                           # (chunk_size, nd_node_x^2*nk_edge_x)
         h_node = h_node.view(-1, self.nd_node_x, self.nk_node_x)                 # (chunk_size, nd_node_x, nk_node_x)
         h_edge = h_edge.view(-1, self.nd_node_x, self.nd_node_x, self.nk_edge_x) # (chunk_size, nd_node_x, nd_node_x, nk_edge_x)
+        h_edge = zero_diagonal(h_edge, self.device)
+        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
         return h_node, h_edge
+
+
 
 class BackConv(nn.Module):
     def __init__(self,
@@ -169,9 +232,9 @@ class BackConv(nn.Module):
         nz_node = nd_node_z   *nk_node_z
         nz_edge = nd_node_z**2*nk_edge_z
 
-        self.net_back = ffnn_decoder(nz_node+nz_edge,        nh_node+nz_edge,  nl_back, True, nn.ReLU())
-        self.net_node = ffnn_decoder(        nh_node, nd_node_x   *nk_node_x,  nl_node, True)
-        self.net_edge = conv_decoder(        nz_edge, ns_edge, nk_edge_x, arch)
+        self.net_back = ffnn_network(nz_node+nz_edge,        nh_node+nz_edge,  nl_back, True, nn.ReLU())
+        self.net_node = ffnn_network(        nh_node, nd_node_x   *nk_node_x,  nl_node, True)
+        self.net_edge = conv_network(        nz_edge, ns_edge, nk_edge_x, arch)
         self.device = device
 
     def forward(self, z_node, z_edge):                             # (chunk_size, nd_node_z,  nk_node_z), (chunk_size, nd_node_z, nd_node_z, nk_edge_z)
@@ -292,3 +355,156 @@ class BackFlow(nn.Module):
         a = a.view(-1, self.nd_node*self.nd_node, self.nk_edge)
 
         return x, a # (100,9,5), (100,81,4)
+
+
+class GaussianSampler:
+    def __init__(self,
+                 nd_node_z: int,
+                 nk_node_z: int,
+                 nk_edge_z: int,
+                 num_samples: Optional[int]=1,
+                 sd_node: Optional[float]=1.0,
+                 sd_edge: Optional[float]=1.0,
+                 trainable_weights: Optional[bool]=False,
+                 device: Optional[str]='cuda'
+                 ):
+        self.nd_node_z = nd_node_z
+        self.nk_node_z = nk_node_z
+        self.nk_edge_z = nk_edge_z
+
+        self.sd_node = sd_node
+        self.sd_edge = sd_edge
+        self.num_samples = num_samples
+        self.device = device
+
+        self.w = torch.full((num_samples,), math.log(1 / num_samples), device=self.device, requires_grad=trainable_weights)
+        self.m = torch.tril(torch.ones(nd_node_z, nd_node_z, dtype=torch.bool), diagonal=-1)
+
+    def __call__(self, num_samples: Optional[any]=None):
+        if num_samples == None:
+            num_samples = self.num_samples
+
+        z_node = self.sd_node*torch.randn(num_samples, self.nd_node_z, self.nk_node_z, device=self.device)
+        z_edge = torch.zeros(num_samples, self.nd_node_z, self.nd_node_z, self.nk_edge_z, device=self.device)
+
+        d_edge = self.nd_node_z*(self.nd_node_z - 1)//2
+        v_edge = self.sd_edge*torch.randn(num_samples*d_edge*self.nk_edge_z, device=self.device)
+        z_edge[:, self.m,   :] = v_edge.view(-1, d_edge, self.nk_edge_z)
+        z_edge[:, self.m.T, :] = v_edge.view(-1, d_edge, self.nk_edge_z)
+
+        return z_node, z_edge, self.w
+
+class CategoricalSampler:
+    def __init__(self,
+                 nd_node_z: int,
+                 nk_node_z: int,
+                 nk_edge_z: int,
+                 num_samples: Optional[int]=1,
+                 trainable_weights: Optional[bool]=False,
+                 device: Optional[str]='cuda'
+                 ):
+        self.nd_node_z = nd_node_z
+        self.nk_node_z = nk_node_z
+        self.nk_edge_z = nk_edge_z
+
+        self.num_samples = num_samples
+        self.device = device
+
+        self.w = torch.full((num_samples,), math.log(1 / num_samples), device=self.device, requires_grad=trainable_weights)
+        self.m = torch.tril(torch.ones(nd_node_z, nd_node_z, dtype=torch.bool), diagonal=-1)
+
+    def __call__(self, num_samples: Optional[any]=None):
+        if num_samples == None:
+            num_samples = self.num_samples
+
+        d_edge = self.nd_node_z*(self.nd_node_z - 1)//2
+        logit_node = torch.ones(self.nk_node_z, device=self.device)
+        logit_edge = torch.ones(self.nk_edge_z, device=self.device)
+        z_node = Categorical(logits=logit_node).sample((self.num_samples, self.nd_node_z)).float()
+        v_edge = Categorical(logits=logit_edge).sample((self.num_samples*d_edge, )).float()
+
+        z_edge = torch.zeros(self.num_samples, self.nd_node_z, self.nd_node_z, device=self.device)
+        z_edge[:, self.m  ] = v_edge.view(-1, d_edge)
+        z_edge[:, self.m.T] = v_edge.view(-1, d_edge)
+        z_node, z_edge = cat2ohe(z_node, z_edge, self.nk_node_z, self.nk_edge_z)
+
+        z_edge = torch.movedim(z_edge, 1, -1) # get rid of this in cat2ohe and adapt the flow model accordingly
+
+        return z_node.float(), z_edge.float(), self.w
+
+
+class GaussianEncoder(nn.Module):
+    def __init__(self,
+                 network: nn.Module,
+                 device: Optional[str]='cuda'
+                 ):
+        super(GaussianEncoder, self).__init__()
+        self.network = network
+        self.device = device
+
+    def forward(self,
+                x_node: torch.Tensor,                                                    # (batch_size, nd_node_x, nk_node_x)
+                x_edge: torch.Tensor                                                     # (batch_size, nd_edge_x, nd_node_x, nk_node_x)
+                ):
+        embed_node, embed_edge = self.network(x_node, x_edge)                            # (2*batch_size, nh_node_z, nk_node_z), (2*batch_size, nh_edge_z, nh_edge_z, nk_edge_z)
+        m_node, v_node = embed_node.chunk(2, dim=0)                                      # (batch_size, nh_node_z, nk_node_z), (batch_size, nh_node_z, nk_node_z)
+        m_edge, v_edge = embed_edge.chunk(2, dim=0)                                      # (batch_size, nh_edge_z, nh_edge_z, nk_edge_z), (batch_size, nh_edge_z, nh_edge_z, nk_edge_z)
+
+        kld_node = -0.5 * torch.sum(1 + v_node - m_node ** 2 - v_node.exp(), dim=2)      # (batch_size, nh_node_z)
+        kld_edge = -0.5 * torch.sum(1 + v_edge - m_edge ** 2 - v_edge.exp(), dim=(2, 3)) # (batch_size, nh_edge_z)
+
+        z_node = m_node + torch.exp(0.5*v_node)*torch.randn_like(v_node)                 # (batch_size, nh_node_z, nk_node_z)
+        z_edge = m_edge + torch.exp(0.5*v_edge)*torch.randn_like(v_edge)                 # (batch_size, nh_edge_z, nh_edge_z, nk_node_z)
+        z_edge = zero_diagonal(z_edge, self.device)
+        z_edge = (z_edge + z_edge.transpose(1, 2)) / 2
+
+        return kld_node + kld_edge, z_node, z_edge
+
+    def sample(self, x_node: torch.Tensor, x_edge: torch.Tensor, num_samples: int):
+        embed_node, embed_edge = self.network(x_node, x_edge)
+        m_node, v_node = embed_node.chunk(2, dim=0)
+        m_edge, v_edge = embed_edge.chunk(2, dim=0)
+
+        z_node = Normal(m_node, torch.exp(0.5*v_node)).sample((num_samples,))
+        z_edge = Normal(m_edge, torch.exp(0.5*v_edge)).sample((num_samples,))
+        z_edge = zero_diagonal(z_edge, self.device)
+        z_edge = (z_edge + z_edge.transpose(1, 2)) / 2
+
+        return z_node, z_edge
+
+class CategoricalDecoder(nn.Module):
+    def __init__(self,
+                 network: nn.Module,
+                 num_chunks: Optional[int]=1,
+                 device: Optional[str]='cuda'
+                 ):
+        super(CategoricalDecoder, self).__init__()
+        self.network = network
+        self.num_chunks = num_chunks
+        self.device = device
+
+    def forward(self,
+                x_node: torch.Tensor,                                            # (bs, nd_node_x, nk_node_x)
+                x_edge: torch.Tensor,                                            # (bs, nd_node_x, nd_node_x, nk_edge_x)
+                z_node: torch.Tensor,                                            # (bs, nd_node_z, nk_node_z)
+                z_edge: torch.Tensor                                             # (bs, nd_node_z, nd_node_z, nk_edge_z)
+                ):
+        x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_node_x), (bs, nd_node_x, nd_node_x)
+        x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_node_x)
+        x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_node_x, nd_node_x)
+
+        log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
+        for c in torch.arange(len(z_node)).chunk(self.num_chunks):
+            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_node_x, nk_node_x), (chunk_size, nd_node_x, nd_node_x, nk_edge_x)
+            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_node_x)
+            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_node_x, nd_node_x)
+            log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=(2, 3))
+
+        return log_prob
+
+    def sample(self, z_node: torch.Tensor, z_edge: torch.Tensor):
+        logit_node, logit_edge = self.network(z_node, z_edge)
+        x_node = Categorical(logits=logit_node).sample()
+        x_edge = Categorical(logits=logit_edge).sample()
+        x_node, x_edge = cat2ohe(x_node, x_edge, self.network.nk_node_x, self.network.nk_edge_x)
+        return x_node, x_edge
