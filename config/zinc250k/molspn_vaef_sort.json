@@ -10,14 +10,14 @@
         "nk_ez": 4,
         "nh_n": 512,
         "nh_e": 256,
-        "nl_b": 2,
-        "nl_n": 2,
-        "nl_e": 2,
+        "nl_b": 4,
+        "nl_n": 12,
+        "nl_e": 8,
         "device": "cuda"
     },
     "optimizer": "adam",
     "optimizer_hyperpars": {
-        "lr": 0.0002,
+        "lr": 0.0001,
         "weight_decay": 0e-4
     },
     "num_epochs": 200,

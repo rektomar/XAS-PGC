@@ -8,6 +8,7 @@ from torch.nn.modules.normalization import LayerNorm
 from torch.nn import functional as F
 from torch import Tensor
 from typing import Optional
+from models.utils import zero_diagonal
 
 
 class NodeEdgeAttBlock(nn.Module):
@@ -95,7 +96,7 @@ class TransformerLayer(nn.Module):
                  nh_e: int,
                  df_n: int = 2048,
                  df_e: int = 128,
-                 dropout: float = 0.1,
+                 dropout: float = 0.0,
                  eps: float = 1e-5
                  ):
         super().__init__()
@@ -145,8 +146,10 @@ class TransformerLayer(nn.Module):
 class GraphTransformer(nn.Module):
     def __init__(self,
                  n_layers: int,
-                 nk_node: int,
-                 nk_edge: int,
+                 nk_ni: int,
+                 nk_ei: int,
+                 nk_no: int,
+                 nk_eo: int,
                  mh_n: int,
                  mh_e: int,
                  n_head: int,
@@ -160,19 +163,19 @@ class GraphTransformer(nn.Module):
                  ):
         super().__init__()
         self.n_layers = n_layers
-        self.nk_node = nk_node
-        self.nk_edge = nk_edge
-        self.nk_node_x = nk_node
-        self.nk_edge_x = nk_edge
+        self.nk_ni = nk_ni
+        self.nk_ei = nk_ei
+        self.nk_no = nk_no
+        self.nk_eo = nk_eo
 
         self.mlp_in_x = nn.Sequential(
-            nn.Linear(nk_node, mh_n),
+            nn.Linear(nk_ni, mh_n),
             act_fn_in(),
             nn.Linear(mh_n, nh_n),
             act_fn_in()
             )
         self.mlp_in_a = nn.Sequential(
-            nn.Linear(nk_edge, mh_e),
+            nn.Linear(nk_ei, mh_e),
             act_fn_in(),
             nn.Linear(mh_e, nh_e),
             act_fn_in()
@@ -191,38 +194,42 @@ class GraphTransformer(nn.Module):
         self.mlp_out_x = nn.Sequential(
             nn.Linear(nh_n, mh_n),
             act_fn_out(),
-            nn.Linear(mh_n, nk_node)
+            nn.Linear(mh_n, nk_no)
             )
         self.mlp_out_a = nn.Sequential(
             nn.Linear(nh_e, mh_e),
             act_fn_out(),
-            nn.Linear(mh_e, nk_edge)
+            nn.Linear(mh_e, nk_eo)
             )
 
         self.device = device
 
     def forward(self, x, a):
-        bs, n = x.shape[0], x.shape[1]
+        # bs, n = x.shape[0], x.shape[1]
 
-        diag_mask = torch.eye(n)
-        diag_mask = ~diag_mask.type_as(a).bool()
-        diag_mask = diag_mask.unsqueeze(0).unsqueeze(-1).expand(bs, -1, -1, -1)
+        # diag_mask = torch.eye(n)
+        # diag_mask = ~diag_mask.type_as(a).bool()
+        # diag_mask = diag_mask.unsqueeze(0).unsqueeze(-1).expand(bs, -1, -1, -1)
 
-        x_to_out = x
-        a_to_out = a
+        # x_to_out = x
+        # a_to_out = a
 
         x = self.mlp_in_x(x)
         a = self.mlp_in_a(a)
-        a = (a + a.transpose(1, 2)) / 2
+        # a = (a + a.transpose(1, 2)) / 2
 
         for layer in self.tf_layers:
             x, a = layer(x, a)
+            # a = (a + a.transpose(1, 2)) / 2
 
         x = self.mlp_out_x(x)
         a = self.mlp_out_a(a)
 
-        x = (x + x_to_out)
-        a = (a + a_to_out) * diag_mask
+        # rep = x.size(-1)//x_to_out.size(-1)
+
+        # x = (x + x_to_out.repeat(1, 1, rep))
+        # a = (a + a_to_out.repeat(1, 1, 1, rep)) * diag_mask
+        zero_diagonal(a, self.device)
         a = (a + a.transpose(1, 2)) / 2
 
         return x, a
@@ -230,8 +237,8 @@ class GraphTransformer(nn.Module):
 
 if __name__ == '__main__':
     n_layers = 2
-    nk_node = 5
-    nk_edge = 4
+    nk_ni = 5
+    nk_ei = 4
     mh_n = 256
     mh_e = 128
     n_head = 8
@@ -240,7 +247,7 @@ if __name__ == '__main__':
     df_n = 256
     df_e = 128
 
-    model = GraphTransformer(n_layers, nk_node, nk_edge, mh_n, mh_e, n_head, nh_n, nh_e, df_n, df_e)
+    model = GraphTransformer(n_layers, nk_ni, nk_ei, mh_n, mh_e, n_head, nh_n, nh_e, df_n, df_e)
 
     xx = torch.randn(100, 9, 5)
     aa = torch.randn(100, 9, 9, 4)

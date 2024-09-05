@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from typing import Optional
 from models.utils import CategoricalDecoder, GaussianEncoder, EncoderFFNN , DecoderFFNN, GaussianSampler, GraphXCoder
+from models.graph_transformer import GraphTransformer
 
 
 # def log_prob(self, x: torch.Tensor, n_mc_samples: int = 1, n_chunks: int = None):
@@ -118,7 +119,53 @@ class MolSPNVAEXSort(nn.Module):
         x_node, x_edge = self.decoder.sample(z_node, z_edge)
         return x_node, x_edge
 
+class MolSPNVAETSort(nn.Module):
+    def __init__(self,
+                 nk_nx: int,
+                 nk_ex: int,
+                 nd_nz: int,
+                 nk_nz: int,
+                 nk_ez: int,
+                 nl: int,
+                 nh_n: int,
+                 nh_e: int,
+                 mh_n: int,
+                 mh_e: int,
+                 n_head: int,
+                 df_n: int,
+                 df_e: int,
+                 device: Optional[str]='cuda'
+                 ):
+        super(MolSPNVAETSort, self).__init__()
+
+        encoder_network = GraphTransformer(nl, nk_nx, nk_ex, 2*nk_nz, 2*nk_ez, mh_n, mh_e, n_head, nh_n, nh_e, df_n, df_e, device=device)
+        decoder_network = GraphTransformer(nl, nk_nx, nk_ex,   nk_nz,   nk_ez, mh_n, mh_e, n_head, nh_n, nh_e, df_n, df_e, device=device)
+
+        self.encoder = GaussianEncoder(   encoder_network,  device=device)
+        self.decoder = CategoricalDecoder(decoder_network,  device=device)
+        self.sampler = GaussianSampler(nd_nz, nk_nz, nk_ez, device=device)
+        self.device = device
+        self.to(device)
+
+    def forward(self, x, a):
+        x_node = x.to(device=self.device, dtype=torch.float)
+        x_edge = a.to(device=self.device, dtype=torch.float)
+
+        kld_loss, z_node, z_edge = self.encoder(x_node, x_edge)
+        rec_loss = self.decoder(x_node, x_edge, z_node, z_edge)
+
+        return rec_loss.sum(dim=1) - kld_loss.sum(dim=1)
+
+    def logpdf(self, x, a):
+        return self(x, a).mean()
+
+    def sample(self, num_samples):
+        z_node, z_edge, _ = self.sampler(num_samples)
+        x_node, x_edge = self.decoder.sample(z_node, z_edge)
+        return x_node, x_edge
+
 MODELS = {
     'molspn_vaef_sort': MolSPNVAEFSort,
     'molspn_vaex_sort': MolSPNVAEXSort,
+    'molspn_vaet_sort': MolSPNVAETSort,
 }

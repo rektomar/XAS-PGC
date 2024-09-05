@@ -533,9 +533,9 @@ class GaussianEncoder(nn.Module):
 
     def forward(self,
                 x_node: torch.Tensor,                                                    # (batch_size, nd_no, nk_no)
-                x_edge: torch.Tensor                                                     # (batch_size, nd_edge_x, nd_no, nk_no)
+                x_edge: torch.Tensor                                                     # (batch_size, nd_no, nd_no, nk_no)
                 ):
-        embed_node, embed_edge = self.network(x_node, x_edge)                            # (2*batch_size, nh_node_z, nk_ni), (2*batch_size, nh_edge_z, nh_edge_z, nk_ei)
+        embed_node, embed_edge = self.network(x_node, x_edge)                            # (batch_size, nh_node_z, nk_ni), (batch_size, nh_edge_z, nh_edge_z, nk_ei)
         m_node, v_node = embed_node.chunk(2, dim=-1)                                     # (batch_size, nh_node_z, nk_ni), (batch_size, nh_node_z, nk_ni)
         m_edge, v_edge = embed_edge.chunk(2, dim=-1)                                     # (batch_size, nh_edge_z, nh_edge_z, nk_ei), (batch_size, nh_edge_z, nh_edge_z, nk_ei)
 
@@ -579,15 +579,18 @@ class CategoricalDecoder(nn.Module):
                 z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
                 ):
         x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
-        x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
-        x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
+        # x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
+        # x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
+        x_node = x_node.float()                                                  # (bs, nd_no)
+        x_edge = x_edge.float()                                                  # (bs, nd_no, nd_no)
 
         log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
         for c in torch.arange(len(z_node)).chunk(self.num_chunks):
             logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
             log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
             log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
-            log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=(2, 3))
+            # log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=(2, 3))
+            log_prob[:, c] = log_prob_node.sum(dim=1) + log_prob_edge.sum(dim=(1, 2))
 
         return log_prob
 
