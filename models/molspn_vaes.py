@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from typing import Optional
-from models.utils import CategoricalDecoder, GaussianEncoder, EncoderFFNN , DecoderFFNN, GaussianSampler, zero_diagonal
+from models.utils import CategoricalDecoder, GaussianEncoder, EncoderFFNN , DecoderFFNN, GaussianSampler, GraphXCoder
 
 
 # def log_prob(self, x: torch.Tensor, n_mc_samples: int = 1, n_chunks: int = None):
@@ -49,8 +49,51 @@ class MolSPNVAEFSort(nn.Module):
                  ):
         super(MolSPNVAEFSort, self).__init__()
 
-        encoder_network = EncoderFFNN(nd_nx, nk_nx, nk_ex, nd_nz, nk_nz, nk_ez, nh_n, nh_e, nl_b, nl_n, nl_e, device=device)
-        decoder_network = DecoderFFNN(nd_nz, nk_nz, nk_ez, nd_nx, nk_nx, nk_ex, nh_n, nh_e, nl_b, nl_n, nl_e, device=device)
+        encoder_network = EncoderFFNN(nd_nx, nk_nx, nk_ex, nd_nz, 2*nk_nz, 2*nk_ez, nh_n, nh_e, nl_b, nl_n, nl_e, device=device)
+        decoder_network = DecoderFFNN(nd_nz, nk_nz, nk_ez, nd_nx,   nk_nx,   nk_ex, nh_n, nh_e, nl_b, nl_n, nl_e, device=device)
+
+        self.encoder = GaussianEncoder(   encoder_network,  device=device)
+        self.decoder = CategoricalDecoder(decoder_network,  device=device)
+        self.sampler = GaussianSampler(nd_nz, nk_nz, nk_ez, device=device)
+        self.device = device
+        self.to(device)
+
+    def forward(self, x, a):
+        x_node = x.to(device=self.device, dtype=torch.float)
+        x_edge = a.to(device=self.device, dtype=torch.float)
+
+        kld_loss, z_node, z_edge = self.encoder(x_node, x_edge)
+        rec_loss = self.decoder(x_node, x_edge, z_node, z_edge)
+
+        return rec_loss.sum(dim=1) - kld_loss.sum(dim=1)
+
+    def logpdf(self, x, a):
+        return self(x, a).mean()
+
+    def sample(self, num_samples):
+        z_node, z_edge, _ = self.sampler(num_samples)
+        x_node, x_edge = self.decoder.sample(z_node, z_edge)
+        return x_node, x_edge
+
+class MolSPNVAEXSort(nn.Module):
+    def __init__(self,
+                 nk_nx: int,
+                 nk_ex: int,
+                 nd_nz: int,
+                 nk_nz: int,
+                 nk_ez: int,
+                 nh_n: int,
+                 nh_e: int,
+                 nl_n: int,
+                 nl_e: int,
+                 nl_m: int,
+                 nb: int,
+                 device: Optional[str]='cuda'
+                 ):
+        super(MolSPNVAEXSort, self).__init__()
+
+        encoder_network = GraphXCoder(nk_nx, nk_ex, 2*nk_nz, 2*nk_ez, nh_n, nh_e, nl_n, nl_e, nl_m, nb, device=device)
+        decoder_network = GraphXCoder(nk_nz, nk_ez,   nk_nx,   nk_ex, nh_n, nh_e, nl_n, nl_e, nl_m, nb, device=device)
 
         self.encoder = GaussianEncoder(   encoder_network,  device=device)
         self.decoder = CategoricalDecoder(decoder_network,  device=device)
@@ -77,4 +120,5 @@ class MolSPNVAEFSort(nn.Module):
 
 MODELS = {
     'molspn_vaef_sort': MolSPNVAEFSort,
+    'molspn_vaex_sort': MolSPNVAEXSort,
 }
