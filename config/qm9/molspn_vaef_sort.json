@@ -8,8 +8,8 @@
         "nd_nz": 9,
         "nk_nz": 5,
         "nk_ez": 4,
-        "nh_n": 1024,
-        "nh_e": 512,
+        "nh_n": 2048,
+        "nh_e": 1024,
         "nl_b": 4,
         "nl_n": 8,
         "nl_e": 8,
@@ -20,7 +20,7 @@
         "lr": 0.0001,
         "weight_decay": 0e-4
     },
-    "num_epochs": 200,
+    "num_epochs": 1000,
     "batch_size": 256,
     "seed": 0
 }

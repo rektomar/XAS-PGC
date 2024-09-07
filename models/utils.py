@@ -230,6 +230,9 @@ class GraphXBlock(nn.Module):
         self.net_nm = ffnn_network(nh_edge, nh_node, nl_mm, True, nn.ReLU())
         self.net_em = ffnn_network(nh_node, nh_edge, nl_mm, True, nn.ReLU())
 
+        self.lin_nm = nn.Linear(nh_node, nh_node)
+        self.lin_em = nn.Linear(nh_edge, nh_edge)
+
         self.net_no = ffnn_network(nh_node, nk_no,  nl_node, True, final_act)
         self.net_eo = ffnn_network(nh_edge, nk_eo,  nl_edge, True, final_act)
         self.device = device
@@ -241,16 +244,14 @@ class GraphXBlock(nn.Module):
 
         h_node = h_node.sum(dim=1)                          # (bs, nh_node)
         h_edge = h_edge.sum(dim=(1,2))                      # (bs, nh_edge)
-        h_node = h_node + self.net_nm(h_edge)               # (bs, nh_node)
-        h_edge = h_edge + self.net_em(h_node)               # (bs, nh_edge)
+        h_node = self.lin_nm(h_node) + self.net_nm(h_edge)  # (bs, nh_node)
+        h_edge = self.lin_em(h_edge) + self.net_em(h_node)  # (bs, nh_edge)
 
         h_node = h_node.unsqueeze(1).expand(-1, nd_ni, -1)                      # (bs, nd_ni, nk_ni)
         h_edge = h_edge.unsqueeze(1).unsqueeze(2).expand(-1, nd_ni, nd_ni, -1)  # (bs, nd_ni, nd_ni, nk_ei)
 
         h_node = self.net_no(h_node)                        # (bs, nd_ni, nk_no)
         h_edge = self.net_eo(h_edge)                        # (bs, nd_ni, nd_ni, nk_eo)
-        h_edge = zero_diagonal(h_edge, self.device)
-        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
         return h_node, h_edge
 
 class GraphXCoder(nn.Module):
@@ -288,6 +289,8 @@ class GraphXCoder(nn.Module):
         h_node, h_edge = x_node, x_edge # (bs, nd_ni, nk_ni), (bs, nd_ni, nd_ni, nk_ei)
         for block in self.blocks:
             h_node, h_edge = block(h_node, h_edge)
+        h_edge = zero_diagonal(h_edge, self.device)
+        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
         return h_node, h_edge
 
 

@@ -53,7 +53,7 @@ def train(
         smiles_trn,
         hyperpars,
         checkpoint_dir,
-        num_nonimproving_epochs=200,
+        num_nonimproving_epochs=2000,
         verbose=False,
         metric_type='score'
     ):
