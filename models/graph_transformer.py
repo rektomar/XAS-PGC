@@ -21,7 +21,7 @@ class NodeEdgeAttBlock(nn.Module):
         assert nh_n % n_head == 0, f"nh_n: {nh_n} -- nhead: {n_head}"
         self.nh_n = nh_n
         self.nh_e = nh_e
-        self.df = int(nh_n / n_head)
+        self.nh_f = int(nh_n / n_head)
         self.n_head = n_head
 
         self.q = nn.Linear(nh_n, nh_n)
@@ -36,49 +36,48 @@ class NodeEdgeAttBlock(nn.Module):
 
     def forward(self, x, a):
         """
-        :param x: (bs, n, d)    node features
-        :param a: (bs, n, n, d) edge features
+        :param x: (bs, n, nk_n)    node features
+        :param a: (bs, n, n, nk_e) edge features
         :return: xhat, ahat of the same dims.
         """
         q = self.q(x)                          # (bs, n, nh_n)
         k = self.k(x)                          # (bs, n, nh_n)
 
-        # Reshape to (bs, n, n_head, df) with nh_n = n_head * df.
-        q = q.reshape((q.size(0), q.size(1), self.n_head, self.df))
-        k = k.reshape((k.size(0), k.size(1), self.n_head, self.df))
+        # Reshape to (bs, n, n_head, nh_f) with nh_n = n_head * nh_f
+        q = q.reshape((q.size(0), q.size(1), self.n_head, self.nh_f))
+        k = k.reshape((k.size(0), k.size(1), self.n_head, self.nh_f))
 
-        q = q.unsqueeze(2)                     # (bs, 1, n, n_head, df)
-        k = k.unsqueeze(1)                     # (bs, n, 1, n head, df)
+        q = q.unsqueeze(2)                     # (bs, 1, n, n_head, nh_f)
+        k = k.unsqueeze(1)                     # (bs, n, 1, n head, nh_f)
 
-        # Compute unnormalized attentions.
-        y = q * k                              # (bs, n, n, n_head, df)
+        # Compute unnormalized attentions
+        y = q * k                              # (bs, n, n, n_head, nh_f)
         y = y / math.sqrt(y.size(-1))
 
-        # FiLM: Incorporate edge features to the self attention scores.
+        # FiLM: Incorporate edge features to the self attention scores
         a1 = self.a_mul(a)                     # (bs, n, n, nh_n)
         a2 = self.a_add(a)                     # (bs, n, n, nh_n)
-        a1 = a1.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.df))
-        a2 = a2.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.df))
-        y = y * (a1 + 1) + a2                  # (bs, n, n, n_head, df)
+        a1 = a1.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.nh_f))
+        a2 = a2.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.nh_f))
+        y = y * (a1 + 1) + a2                  # (bs, n, n, n_head, nh_f)
 
         ahat = y.flatten(start_dim=3)          # (bs, n, n, nh_n)
         ahat = self.a_out(ahat)                # (bs, n, n, nh_n)
 
         # Compute attentions. 
-        attn = torch.softmax(y, dim=2)         # (bs, n, n, n_head) ? (bs, n, n, n_head, df)
+        attn = torch.softmax(y, dim=2)         # (bs, n, n, n_head) ? (bs, n, n, n_head, nh_f)
 
         v = self.v(x)                          # (bs, n, nh_n
-        v = v.reshape((v.size(0), v.size(1), self.n_head, self.df))
-        v = v.unsqueeze(1)                     # (bs, 1, n, n_head, df)
+        v = v.reshape((v.size(0), v.size(1), self.n_head, self.nh_f))
+        v = v.unsqueeze(1)                     # (bs, 1, n, n_head, nh_f)
 
         weighted_v = attn * v
         weighted_v = weighted_v.sum(dim=2)
 
-        xhat = weighted_v.flatten(start_dim=2) # (bs, n, dx)
+        xhat = weighted_v.flatten(start_dim=2) # (bs, n, nh_n)
         xhat = self.x_out(xhat)
 
         return xhat, ahat
-
 
 class TransformerLayer(nn.Module):
     """ Transformer that updates node and edge features
@@ -96,11 +95,10 @@ class TransformerLayer(nn.Module):
                  nh_e: int,
                  df_n: int = 2048,
                  df_e: int = 128,
-                 dropout: float = 0.0,
+                 dropout: float = 0.1,
                  eps: float = 1e-5
                  ):
         super().__init__()
-
         self.self_attn = NodeEdgeAttBlock(nh_n, nh_e, n_head)
 
         self.lin_x1 = Linear(nh_n, df_n)
@@ -173,13 +171,13 @@ class GraphTransformer(nn.Module):
             act_fn_in(),
             nn.Linear(mh_n, nh_n),
             act_fn_in()
-            )
+        )
         self.mlp_in_a = nn.Sequential(
             nn.Linear(nk_ei, mh_e),
             act_fn_in(),
             nn.Linear(mh_e, nh_e),
             act_fn_in()
-            )
+        )
 
         self.tf_layers = nn.ModuleList([
             TransformerLayer(
@@ -188,19 +186,19 @@ class GraphTransformer(nn.Module):
                 nh_e=nh_e,
                 df_n=df_n,
                 df_e=df_e
-                ) for _ in range(n_layers)
-            ])
+            ) for _ in range(n_layers)
+        ])
 
         self.mlp_out_x = nn.Sequential(
             nn.Linear(nh_n, mh_n),
             act_fn_out(),
             nn.Linear(mh_n, nk_no)
-            )
+        )
         self.mlp_out_a = nn.Sequential(
             nn.Linear(nh_e, mh_e),
             act_fn_out(),
             nn.Linear(mh_e, nk_eo)
-            )
+        )
 
         self.device = device
 

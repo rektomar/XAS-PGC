@@ -12,3 +12,7 @@ qm9.tab
 
 train.pdf
 train.tex
+
+utils/graph_features_general.py
+utils/graph_features_molecular.py
+models/graph_transformer_augmented.py

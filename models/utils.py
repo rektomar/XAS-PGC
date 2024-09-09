@@ -602,4 +602,4 @@ class CategoricalDecoder(nn.Module):
         x_node = Categorical(logits=logit_node).sample()
         x_edge = Categorical(logits=logit_edge).sample()
         x_node, x_edge = cat2ohe(x_node, x_edge, self.network.nk_no, self.network.nk_eo)
-        return x_node, x_edge
+        return x_node.cpu(), x_edge.cpu()

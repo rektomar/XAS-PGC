@@ -61,7 +61,7 @@ if __name__ == '__main__':
         smiles_trn = [x['s'] for x in loader_trn.dataset]
 
         path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR)
-        model = torch.load(path)
+        model = torch.load(path, weights_only=False)
         metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False, canonical=canonical)
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))
