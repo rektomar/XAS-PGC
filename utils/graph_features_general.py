@@ -24,12 +24,12 @@ class ExtraFeatures:
             self.nf_x = 3
             self.nf_a = 0
             self.nf_y = 11
-            self.eigenfeatures = EigenFeatures(mode=type)
+            self.eigenfeatures = EigenFeatures(type)
         elif self.type == 'all':
             self.nf_x = 6
             self.nf_a = 0
             self.nf_y = 11
-            self.eigenfeatures = EigenFeatures(mode=type)
+            self.eigenfeatures = EigenFeatures(type)
         else:
             raise ValueError(f"Features type {self.type} not implemented")
 
@@ -46,29 +46,29 @@ class ExtraFeatures:
             return (x_cycles,                                   # (bs, n, 3)
                     torch.zeros((*a.shape[:-1], 0)).type_as(a), # (bs, n, n, 0)
                     torch.hstack((rel_num_nodes,
-                                  y_cycles))     # (bs, 1), (bs, 4)
+                                  y_cycles))                    # (bs, 1), (bs, 4)
                     )
 
         elif self.type == 'eigen':
             num_components, batched_eigenvalues = self.eigenfeatures(x, a)
 
-            return (x_cycles,                                                                  # (bs, n, 3)
-                    torch.zeros((*a.shape[:-1], 0)).type_as(a),                                # (bs, n, n, 0)
+            return (x_cycles,                                   # (bs, n, 3)
+                    torch.zeros((*a.shape[:-1], 0)).type_as(a), # (bs, n, n, 0)
                     torch.hstack((rel_num_nodes,
                                   y_cycles,
                                   num_components,
-                                  batched_eigenvalues)) # (bs, 1), (bs, 4), (bs, 1), (bs, 5)
+                                  batched_eigenvalues))         # (bs, 1), (bs, 4), (bs, 1), (bs, 5)
                     )
 
         elif self.type == 'all':
             num_components, batched_eigenvalues, nonlcc_indicator, k_lowest_eigvec = self.eigenfeatures(x, a)
 
-            return (torch.cat((x_cycles, nonlcc_indicator, k_lowest_eigvec), dim=-1),          # (bs, n, 3), (bs, n, 1), (bs, n, 2)
-                    torch.zeros((*a.shape[:-1], 0)).type_as(a),                                # (bs, n, n, 0)
+            return (torch.cat((x_cycles, nonlcc_indicator, k_lowest_eigvec), dim=-1), # (bs, n, 3), (bs, n, 1), (bs, n, 2)
+                    torch.zeros((*a.shape[:-1], 0)).type_as(a),                       # (bs, n, n, 0)
                     torch.hstack((rel_num_nodes,
                                   y_cycles,
                                   num_components,
-                                  batched_eigenvalues)) # (bs, 1), (bs, 4), (bs, 1), (bs, 5)
+                                  batched_eigenvalues))                               # (bs, 1), (bs, 4), (bs, 1), (bs, 5)
                     )
         else:
             raise ValueError(f"Features type {self.type} not implemented")
