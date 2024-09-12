@@ -34,9 +34,9 @@ if __name__ == '__main__':
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
         # 'molspn_zero_sort',
-        'molspn_vaef_sort',
+        # 'molspn_vaef_sort',
         # 'molspn_vaex_sort',
-        # 'molspn_vaet_sort',
+        'molspn_vaet_sort',
         # 'moflow_sort'
     ]
 
