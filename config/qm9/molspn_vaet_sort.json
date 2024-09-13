@@ -9,18 +9,22 @@
         "nz_x": 5,
         "nz_a": 4,
         "nz_y": 11,
-        "nl": 2,
-        "nh_x": 512,
-        "nh_a": 256,
-        "nh_y": 256,
+        "nl": 3,
+        "n_head": 8,
+
         "mh_x": 1024,
         "mh_a": 512,
-        "mh_y": 512,
-        "n_head": 8,
-        "df_x": 1024,
-        "df_a": 512,
-        "df_y": 512,
-        "ftype": "all",
+        "mh_y": 256,
+
+        "nh_x": 512,
+        "nh_a": 256,
+        "nh_y": 128,
+
+        "df_x": 128,
+        "df_a": 64,
+        "df_y": 32,
+
+        "ftype": "abs",
         "device": "cuda"
     },
     "optimizer": "adam",

@@ -76,14 +76,14 @@ class MolSPNVAEFSort(nn.Module):
 
     def forward(self, x, a):
         xx = x.to(device=self.device, dtype=torch.float)
-        xa = a.to(device=self.device, dtype=torch.float)
+        aa = a.to(device=self.device, dtype=torch.float)
 
-        xf, af, yf = self.features_g(xx, xa)
-        xx = torch.cat((xx, xf), dim=-1)
-        xa = torch.cat((xa, af), dim=-1)
+        xf, af, yf = self.features_g(xx, aa)
+        xe = torch.cat((xx, xf), dim=-1)
+        ae = torch.cat((aa, af), dim=-1)
 
-        kld_loss, zx, za, zy = self.encoder(xx, xa, yf)
-        rec_loss = self.decoder(xx, xa, [], zx, za, zy)
+        kld_loss, zx, za, zy = self.encoder(xe, ae, yf)
+        rec_loss = self.decoder(xx, aa, [], zx, za, zy)
 
         return rec_loss - 1e-6*kld_loss
 
@@ -91,9 +91,9 @@ class MolSPNVAEFSort(nn.Module):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        z_node, z_edge, _ = self.sampler(num_samples)
-        x_node, x_edge = self.decoder.sample(z_node, z_edge)
-        return x_node, x_edge
+        zx, za, zy, _ = self.sampler(num_samples)
+        xx, xa = self.decoder.sample(zx, za, zy)
+        return xx, xa
 
     def sample_conditional(self, x_node, x_edge, m_node, m_edge, n_mc_samples=16384):
         # interpreting decoder as continuous mixture
@@ -189,7 +189,7 @@ class MolSPNVAETSort(nn.Module):
             nl, nx_x+nf_x, nx_a+nf_a, nf_y, 2*(nz_x+nf_x), 2*(nz_a+nf_a), 2*nf_y, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
         )
         decoder_network = GraphTransformer(
-            nl, nz_x+nf_x, nz_a+nf_a, nf_y, nx_x, nx_a, nf_y, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
+            nl, nz_x+nf_x, nz_a+nf_a, nf_y, nx_x, nx_a, 0, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
         )
 
         self.encoder = GaussianEncoder(encoder_network, device=device)
@@ -200,16 +200,16 @@ class MolSPNVAETSort(nn.Module):
 
     def forward(self, x, a):
         xx = x.to(device=self.device, dtype=torch.float)
-        xa = a.to(device=self.device, dtype=torch.float)
+        aa = a.to(device=self.device, dtype=torch.float)
 
-        xf, af, yf = self.features_g(xx, xa)
-        xx = torch.cat((xx, xf), dim=-1)
-        xa = torch.cat((xa, af), dim=-1)
+        xf, af, yf = self.features_g(xx, aa)
+        xe = torch.cat((xx, xf), dim=-1)
+        ae = torch.cat((aa, af), dim=-1)
 
-        kld_loss, zx, za, zy = self.encoder(xx, xa, yf)
-        rec_loss = self.decoder(xx, xa, [], zx, za, zy)
+        kld_loss, zx, za, zy = self.encoder(xe, ae, yf)
+        rec_loss = self.decoder(xx, aa, [], zx, za, zy)
 
-        return rec_loss - 8e-1*kld_loss
+        return rec_loss - 9e-1*kld_loss
 
     def logpdf(self, x, a):
         return self(x, a).mean()
