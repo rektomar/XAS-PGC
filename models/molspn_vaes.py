@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.distributions import Categorical
 
 from typing import Optional
 from models.utils import CategoricalDecoder, GaussianEncoder, EncoderFFNN , DecoderFFNN, GaussianSampler, GraphXCoder
@@ -75,6 +76,22 @@ class MolSPNVAEFSort(nn.Module):
         z_node, z_edge, _ = self.sampler(num_samples)
         x_node, x_edge = self.decoder.sample(z_node, z_edge)
         return x_node, x_edge
+    
+    def sample_conditional(self, x_node, x_edge, m_node, m_edge, n_mc_samples=16384):
+        # interpreting decoder as continuous mixture
+        # TODO: move this function to Decoder
+        # TODO: add mum_samples
+        z_node, z_edge, w = self.sampler(n_mc_samples)
+
+        # marginal probs for each component
+        ll_marg = self.decoder.cm_logpdf_marginal(x_node, x_edge, m_node, m_edge, z_node, z_edge) 
+        k = Categorical(logits=w+ll_marg).sample() # add num_samples here 
+        xc_node, xc_edge = self.decoder.sample(z_node[k], z_edge[k])
+
+        xc_node[m_node] = x_node[m_node].cpu()
+        xc_edge[m_edge] = x_edge[m_edge].cpu()
+
+        return xc_node, xc_edge
 
 class MolSPNVAEXSort(nn.Module):
     def __init__(self,

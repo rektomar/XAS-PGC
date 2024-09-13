@@ -149,6 +149,7 @@ class EncoderFFNN(nn.Module):
         h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
         return h_node, h_edge
 
+
 class DecoderFFNN(nn.Module):
     def __init__(self,
                  nd_ni: int,
@@ -199,6 +200,7 @@ class DecoderFFNN(nn.Module):
         h_edge = zero_diagonal(h_edge, self.device)
         h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
         return h_node, h_edge
+
 
 class GraphXBlock(nn.Module):
     def __init__(self,
@@ -253,6 +255,7 @@ class GraphXBlock(nn.Module):
         h_node = self.net_no(h_node)                        # (bs, nd_ni, nk_no)
         h_edge = self.net_eo(h_edge)                        # (bs, nd_ni, nd_ni, nk_eo)
         return h_node, h_edge
+
 
 class GraphXCoder(nn.Module):
     def __init__(self,
@@ -342,6 +345,7 @@ class BackConv(nn.Module):
         h_node = h_node.view(-1, self.nd_no, self.nk_no)   # (chunk_size, nd_no, nk_no)
         h_edge = torch.movedim(h_edge, 1, -1)              # (chunk_size, nd_no, nd_no, nk_eo)
         return h_node, h_edge
+
 
 class BackFlow(nn.Module):
     def __init__(self,
@@ -486,6 +490,7 @@ class GaussianSampler:
 
         return z_node, z_edge, self.w
 
+
 class CategoricalSampler:
     def __init__(self,
                  nd_ni: int,
@@ -564,6 +569,7 @@ class GaussianEncoder(nn.Module):
 
         return z_node, z_edge
 
+
 class CategoricalDecoder(nn.Module):
     def __init__(self,
                  network: nn.Module,
@@ -594,6 +600,48 @@ class CategoricalDecoder(nn.Module):
             log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
             # log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=(2, 3))
             log_prob[:, c] = log_prob_node.sum(dim=1) + log_prob_edge.sum(dim=(1, 2))
+
+        return log_prob
+    
+    def cm_logpdf(self,
+                  x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
+                  x_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
+                  z_node: torch.Tensor,                                            # (bs, nd_ni, nk_ni)
+                  z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
+                  ):
+        x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
+        x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
+        x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
+
+        log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
+        for c in torch.arange(len(z_node)).chunk(self.num_chunks):
+            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
+            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
+            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
+            log_prob[:, c] = log_prob_node.sum(dim=-1) + log_prob_edge.sum(dim=(-2, -1))
+
+        return log_prob
+    
+    def cm_logpdf_marginal(self,
+                x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
+                x_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
+                m_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
+                m_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
+                z_node: torch.Tensor,                                            # (bs, nd_ni, nk_ni)
+                z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
+                ):
+        x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
+        x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
+        x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
+
+        log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
+        for c in torch.arange(len(z_node)).chunk(self.num_chunks):
+            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
+            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
+            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
+            log_prob_node *= m_node.unsqueeze(1)
+            log_prob_edge *= m_edge.unsqueeze(1)
+            log_prob[:, c] = log_prob_node.sum(dim=-1) + log_prob_edge.sum(dim=(-2, -1))
 
         return log_prob
 
