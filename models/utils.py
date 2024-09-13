@@ -98,108 +98,147 @@ def conv_network(nz: int,
 
 class EncoderFFNN(nn.Module):
     def __init__(self,
-                 nd_no: int,
-                 nk_no: int,
-                 nk_eo: int,
-                 nd_ni: int,
-                 nk_ni: int,
-                 nk_ei: int,
-                 nh_node: int,
-                 nh_edge: int,
-                 nl_back: int,
-                 nl_node: int,
-                 nl_edge: int,
+                 ni: int,
+                 no: int,
+
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+                 l_b: int,
+
                  device: Optional[str]='cuda'
                  ):
         super(EncoderFFNN, self).__init__()
 
-        self.nd_no = nd_no
-        self.nk_no = nk_no
-        self.nk_eo = nk_eo
+        self.ni = ni
+        self.no = no
 
-        self.nd_ni = nd_ni
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.n_xi = n_xi
+        self.n_ai = n_ai
+        self.n_yi = n_yi
 
-        self.nh_node = nh_node
-        self.nh_edge = nh_edge
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
 
-        nz_node = nd_ni   *nk_ni
-        nz_edge = nd_ni**2*nk_ei
+        self.h_x = h_x
+        self.h_a = h_a
+        self.h_y = h_y
 
-        self.nz_node = nz_node
+        self.net_x = ffnn_network( ni   *n_xi,                     h_x, l_x, True, nn.ReLU())
+        self.net_a = ffnn_network( ni**2*n_ai,                     h_a, l_a, True, nn.ReLU())
+        self.net_y = ffnn_network(       n_yi,                     h_y, l_y, True, nn.ReLU())
+        self.net_b = ffnn_network(h_x+h_a+h_y, no*n_xo+no**2*n_ao+n_yo, l_b, True)
 
-        self.net_node = ffnn_network(nd_no   *nk_no, nh_node,  nl_node, True, nn.ReLU())
-        self.net_edge = ffnn_network(nd_no**2*nk_eo, nh_edge,  nl_edge, True, nn.ReLU())
-        self.net_back = ffnn_network(nh_node+nh_edge, nz_node+nz_edge, nl_back, True)
         self.device = device
 
-    def forward(self, x_node, x_edge):                                  # (bs, nd_no,  nk_no), (bs, nd_no, nd_no, nk_eo)
-        x_node = x_node.reshape(-1, self.nd_no   *self.nk_no)           # (bs, nd_no  *nk_no)
-        x_edge = x_edge.reshape(-1, self.nd_no**2*self.nk_eo)           # (bs, nd_no^2*nk_eo)
-        h_node = self.net_node(x_node)                                  # (bs, nh_node)
-        h_edge = self.net_edge(x_edge)                                  # (bs, nh_edge)
-        h = torch.cat((h_node, h_edge), dim=1)                          # (bs, nh_node + nh_edge)
-        h_back = self.net_back(h)                                       # (bs, nz_node + nz_edge)
-        h_node = h_back[:, :self.nz_node]                               # (bs, nz_node)
-        h_edge = h_back[:, self.nz_node:]                               # (bs, nz_edge)
-        h_node = h_node.reshape(-1, self.nd_ni, self.nk_ni)             # (nz_mult*bs, nd_ni, nk_ni)
-        h_edge = h_edge.reshape(-1, self.nd_ni, self.nd_ni, self.nk_ei) # (nz_mult*bs, nd_ni, nd_ni, nk_ei)
-        h_edge = zero_diagonal(h_edge, self.device)
-        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
-        return h_node, h_edge
+    def forward(self, x, a, y):                            # (bs, ni, n_xi), (bs, ni, ni, n_ai), (bs, n_yi)
+        xx = x.reshape(-1, self.ni   *self.n_xi)           # (bs, ni*n_xi)
+        aa = a.reshape(-1, self.ni**2*self.n_ai)           # (bs, ni^2*n_ai)
+
+        hx = self.net_x(xx)                                # (bs, h_x)
+        ha = self.net_a(aa)                                # (bs, h_a)
+        hy = self.net_y(y)                                 # (bs, h_y)
+
+        hh = torch.cat((hx, ha, hy), dim=1)                # (bs, h_x + h_a + h_y)
+        hb = self.net_b(hh)                                # (bs, no*n_xo + no**2*n_ao + n_yo)
+
+        dx = self.no*self.n_xo
+        da = self.no**2*self.n_ao
+
+        hx = hb[:, :dx]                                    # (bs, no*n_xo)
+        ha = hb[:, dx:dx+da]                               # (bs, no**2*n_ao)
+        hy = hb[:, dx+da:]                                 # (bs, n_yo)
+
+        hx = hx.reshape(-1, self.no, self.n_xo)            # (bs, no, n_xo)
+        ha = ha.reshape(-1, self.no, self.no, self.n_ao)   # (bs, no, no, n_ao)
+        ha = zero_diagonal(ha, self.device)
+        ha = (ha + ha.transpose(1, 2)) / 2
+
+        return hx, ha, hy
 
 
 class DecoderFFNN(nn.Module):
     def __init__(self,
-                 nd_ni: int,
-                 nk_ni: int,
-                 nk_ei: int,
-                 nd_no: int,
-                 nk_no: int,
-                 nk_eo: int,
-                 nh_node: int,
-                 nh_edge: int,
-                 nl_back: int,
-                 nl_node: int,
-                 nl_edge: int,
+                 ni: int,
+                 no: int,
+
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+                 l_b: int,
+
                  device: Optional[str]='cuda'
                  ):
         super(DecoderFFNN, self).__init__()
 
-        self.nd_ni = nd_ni
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.ni = ni
+        self.no = no
 
-        self.nd_no = nd_no
-        self.nk_no = nk_no
-        self.nk_eo = nk_eo
+        self.n_xi = n_xi
+        self.n_ai = n_ai
+        self.n_yi = n_yi
 
-        self.nh_node = nh_node
-        self.nh_edge = nh_edge
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
 
-        nz_node = nd_ni   *nk_ni
-        nz_edge = nd_ni**2*nk_ei
+        self.h_x = h_x
+        self.h_a = h_a
+        self.h_y = h_y
 
-        self.net_back = ffnn_network(nz_node+nz_edge,        nh_node+nh_edge,  nl_back, True, nn.ReLU())
-        self.net_node = ffnn_network(        nh_node, nd_no   *nk_no,  nl_node, True)
-        self.net_edge = ffnn_network(        nh_edge, nd_no**2*nk_eo,  nl_edge, True)
+        self.net_b = ffnn_network(ni*n_xi+ni**2*n_ai+n_yi, h_x+h_a+h_a, l_b, True, nn.ReLU())
+        self.net_x = ffnn_network(                    h_x,  no   *n_xo, l_x, True)
+        self.net_a = ffnn_network(                    h_a,  no**2*n_ao, l_a, True)
+        self.net_y = ffnn_network(                    h_a,        n_yo, l_y, True)
+
         self.device = device
 
-    def forward(self, z_node, z_edge):                               # (chunk_size, nd_ni,  nk_ni), (chunk_size, nd_ni, nd_ni, nk_ei)
-        z_node = z_node.view(-1, self.nd_ni   *self.nk_ni)           # (chunk_size, nd_ni  *nk_ni)
-        z_edge = z_edge.view(-1, self.nd_ni**2*self.nk_ei)           # (chunk_size, nd_ni^2*nk_ei)
-        z = torch.cat((z_node, z_edge), dim=1)                       # (chunk_size, nd_ni*nk_ni + nd_ni^2*nk_ei)
-        h_back = self.net_back(z)                                    # (chunk_size, nh_node + nh_edge)
-        h_node = h_back[:, :self.nh_node]                            # (chunk_size, nh_node)
-        h_edge = h_back[:, self.nh_node:]                            # (chunk_size, nh_edge)
-        h_node = self.net_node(h_node)                               # (chunk_size, nd_no  *nk_no)
-        h_edge = self.net_edge(h_edge)                               # (chunk_size, nd_no^2*nk_eo)
-        h_node = h_node.view(-1, self.nd_no, self.nk_no)             # (chunk_size, nd_no, nk_no)
-        h_edge = h_edge.view(-1, self.nd_no, self.nd_no, self.nk_eo) # (chunk_size, nd_no, nd_no, nk_eo)
-        h_edge = zero_diagonal(h_edge, self.device)
-        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
-        return h_node, h_edge
+    def forward(self, zx, za, zy):                    # (bs, ni, n_xi), (bs, ni, ni, n_ai), (bs, n_yi)
+        zx = zx.view(-1, self.ni   *self.n_xi)        # (bs, ni*n_xi)
+        za = za.view(-1, self.ni**2*self.n_ai)        # (bs, ni^2*n_ai
+
+        zz = torch.cat((zx, za, zy), dim=1)           # (bs, ni*n_xi + ni^2*n_ai + n_yi)
+        hb = self.net_b(zz)                           # (bs, h_x + h_a + h_y)
+
+        hx = hb[:, :self.h_x]                         # (bs, h_x)
+        ha = hb[:, self.h_x:self.h_x+self.h_a]        # (bs, h_a)
+        hy = hb[:, self.h_x+self.h_a:]                # (bs, h_y)
+
+        hx = self.net_x(hx)                           # (bs, no*n_xo)
+        ha = self.net_a(ha)                           # (bs, no**2*n_ao)
+        hy = self.net_y(hy)                           # (bs, n_yo)
+
+        hx = hx.view(-1, self.no, self.n_xo)          # (bs, nd_no, nk_no)
+        ha = ha.view(-1, self.no, self.no, self.n_ao) # (bs, nd_no, nd_no, nk_eo)
+        ha = zero_diagonal(ha, self.device)
+        ha = (ha + ha.transpose(1, 2)) / 2
+
+        return hx, ha, hy
 
 
 class GraphXBlock(nn.Module):
@@ -455,40 +494,46 @@ class BackFlow(nn.Module):
 
 class GaussianSampler:
     def __init__(self,
-                 nd_ni: int,
-                 nk_ni: int,
-                 nk_ei: int,
+                 no: int,
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
                  num_samples: Optional[int]=1,
-                 sd_node: Optional[float]=1.0,
-                 sd_edge: Optional[float]=1.0,
+                 sd_x: Optional[float]=1.0,
+                 sd_a: Optional[float]=1.0,
+                 sd_y: Optional[float]=1.0,
                  trainable_weights: Optional[bool]=False,
                  device: Optional[str]='cuda'
                  ):
-        self.nd_ni = nd_ni
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.no = no
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
 
-        self.sd_node = sd_node
-        self.sd_edge = sd_edge
+        self.sd_x = sd_x
+        self.sd_a = sd_a
+        self.sd_y = sd_y
+
         self.num_samples = num_samples
         self.device = device
 
         self.w = torch.full((num_samples,), math.log(1 / num_samples), device=self.device, requires_grad=trainable_weights)
-        self.m = torch.tril(torch.ones(nd_ni, nd_ni, dtype=torch.bool), diagonal=-1)
+        self.m = torch.tril(torch.ones(no, no, dtype=torch.bool), diagonal=-1)
 
     def __call__(self, num_samples: Optional[any]=None):
         if num_samples == None:
             num_samples = self.num_samples
 
-        z_node = self.sd_node*torch.randn(num_samples, self.nd_ni, self.nk_ni, device=self.device)
-        z_edge = torch.zeros(num_samples, self.nd_ni, self.nd_ni, self.nk_ei, device=self.device)
+        zx = self.sd_x*torch.randn(num_samples, self.no,          self.n_xo, device=self.device)
+        zy = self.sd_y*torch.randn(num_samples,                   self.n_yo, device=self.device)
+        za =           torch.zeros(num_samples, self.no, self.no, self.n_ao, device=self.device)
 
-        d_edge = self.nd_ni*(self.nd_ni - 1)//2
-        v_edge = self.sd_edge*torch.randn(num_samples*d_edge*self.nk_ei, device=self.device)
-        z_edge[:, self.m,   :] = v_edge.view(-1, d_edge, self.nk_ei)
-        z_edge[:, self.m.T, :] = v_edge.view(-1, d_edge, self.nk_ei)
+        d_ao = self.no*(self.no - 1)//2
+        va = self.sd_a*torch.randn(num_samples*d_ao*self.n_ao, device=self.device)
+        za[:, self.m,   :] = va.view(-1, d_ao, self.n_ao)
+        za[:, self.m.T, :] = va.view(-1, d_ao, self.n_ao)
 
-        return z_node, z_edge, self.w
+        return zx, za, zy, self.w
 
 
 class CategoricalSampler:
@@ -540,34 +585,46 @@ class GaussianEncoder(nn.Module):
         self.device = device
 
     def forward(self,
-                x_node: torch.Tensor,                                                    # (batch_size, nd_no, nk_no)
-                x_edge: torch.Tensor                                                     # (batch_size, nd_no, nd_no, nk_no)
+                x: torch.Tensor,                                             # (bs, ni, n_xi)
+                a: torch.Tensor,                                             # (bs, ni, ni, n_ai)
+                y: torch.Tensor                                              # (bs, n_yi)
                 ):
-        embed_node, embed_edge = self.network(x_node, x_edge)                            # (batch_size, nh_node_z, nk_ni), (batch_size, nh_edge_z, nh_edge_z, nk_ei)
-        m_node, v_node = embed_node.chunk(2, dim=-1)                                     # (batch_size, nh_node_z, nk_ni), (batch_size, nh_node_z, nk_ni)
-        m_edge, v_edge = embed_edge.chunk(2, dim=-1)                                     # (batch_size, nh_edge_z, nh_edge_z, nk_ei), (batch_size, nh_edge_z, nh_edge_z, nk_ei)
+        hx, ha, hy = self.network(x, a, y)                                   # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
+        mx, vx = hx.chunk(2, dim=-1)                                         # (bs, no, n_xo/2), (bs, no, n_xo/2)
+        ma, va = ha.chunk(2, dim=-1)                                         # (bs, no, no, n_ao/2), (bs, no, no, n_ao/2)
+        my, vy = hy.chunk(2, dim=-1)                                         # (bs, n_yo/2), (bs, n_yo/2)
 
-        kld_node = -0.5 * torch.sum(1 + v_node - m_node ** 2 - v_node.exp(), dim=2)      # (batch_size, nh_node_z)
-        kld_edge = -0.5 * torch.sum(1 + v_edge - m_edge ** 2 - v_edge.exp(), dim=(2, 3)) # (batch_size, nh_edge_z)
+        kld_x = -0.5 * torch.sum(1 + vx - mx ** 2 - vx.exp(), dim=(1, 2))    # (bs)
+        kld_a = -0.5 * torch.sum(1 + va - ma ** 2 - va.exp(), dim=(1, 2, 3)) # (bs)
 
-        z_node = m_node + torch.exp(0.5*v_node)*torch.randn_like(v_node)                 # (batch_size, nh_node_z, nk_ni)
-        z_edge = m_edge + torch.exp(0.5*v_edge)*torch.randn_like(v_edge)                 # (batch_size, nh_edge_z, nh_edge_z, nk_ni)
-        z_edge = zero_diagonal(z_edge, self.device)
-        z_edge = (z_edge + z_edge.transpose(1, 2)) / 2
+        zx = mx + torch.exp(0.5*vx)*torch.randn_like(vx)                     # (bs, no, n_xo/2)
+        za = ma + torch.exp(0.5*va)*torch.randn_like(va)                     # (bs, no, no, n_ao/2)
+        zy = my + torch.exp(0.5*vy)*torch.randn_like(vy)                     # (bs, n_yo/2)
 
-        return kld_node + kld_edge, z_node, z_edge
+        za = zero_diagonal(za, self.device)
+        za = (za + za.transpose(1, 2)) / 2
 
-    def sample(self, x_node: torch.Tensor, x_edge: torch.Tensor, num_samples: int):
-        embed_node, embed_edge = self.network(x_node, x_edge)
-        m_node, v_node = embed_node.chunk(2, dim=0)
-        m_edge, v_edge = embed_edge.chunk(2, dim=0)
+        return kld_x + kld_a, zx, za, zy
 
-        z_node = Normal(m_node, torch.exp(0.5*v_node)).sample((num_samples,))
-        z_edge = Normal(m_edge, torch.exp(0.5*v_edge)).sample((num_samples,))
-        z_edge = zero_diagonal(z_edge, self.device)
-        z_edge = (z_edge + z_edge.transpose(1, 2)) / 2
+    def sample(self,
+               x: torch.Tensor,                                           # (bs, ni, n_xi)
+               a: torch.Tensor,                                           # (bs, ni, ni, n_ai)
+               y: torch.Tensor,                                           # (bs, n_yi)
+               num_samples: int
+               ):
+        hx, ha, hy = self.network(x, a, y)                                # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
+        mx, vx = hx.chunk(2, dim=-1)                                      # (bs, no, n_xo/2), (bs, no, n_xo/2)
+        ma, va = ha.chunk(2, dim=-1)                                      # (bs, no, no, n_ao/2), (bs, no, no, n_ao/2)
+        my, vy = hy.chunk(2, dim=-1)                                      # (bs, n_yo/2), (bs, n_yo/2)
 
-        return z_node, z_edge
+        zx = Normal(mx, torch.exp(0.5*vx)).sample((num_samples,))         # (bs, no, n_xo/2)
+        za = Normal(ma, torch.exp(0.5*va)).sample((num_samples,))         # (bs, no, no, n_ao/2)
+        zy = Normal(my, torch.exp(0.5*vy)).sample((num_samples,))         # (bs, n_yo/2)
+
+        za = zero_diagonal(za, self.device)
+        za = (za + za.transpose(1, 2)) / 2
+
+        return zx, za, zy
 
 
 class CategoricalDecoder(nn.Module):
@@ -582,25 +639,28 @@ class CategoricalDecoder(nn.Module):
         self.device = device
 
     def forward(self,
-                x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
-                x_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
-                z_node: torch.Tensor,                                            # (bs, nd_ni, nk_ni)
-                z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
+                xx: torch.Tensor,                                                  # (bs, no, n_xo)
+                xa: torch.Tensor,                                                  # (bs, no, no, n_ao)
+                xy: torch.Tensor,                                                  # (bs, n_yo)
+                zx: torch.Tensor,                                                  # (bs, ni, n_xi)
+                za: torch.Tensor,                                                  # (bs, ni, ni, n_ai)
+                zy: torch.Tensor                                                   # (bs, n_yi)
                 ):
-        x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
-        # x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
-        # x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
-        x_node = x_node.float()                                                  # (bs, nd_no)
-        x_edge = x_edge.float()                                                  # (bs, nd_no, nd_no)
+        xx, xa = ohe2cat(xx, xa)                                                   # (bs, ni), (bs, ni, ni)
+        xx = xx.float()
+        xa = xa.float()
 
-        log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
-        for c in torch.arange(len(z_node)).chunk(self.num_chunks):
-            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
-            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
-            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
-            # log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=(2, 3))
-            log_prob[:, c] = log_prob_node.sum(dim=1) + log_prob_edge.sum(dim=(1, 2))
-
+        # log_prob = torch.zeros(len(xx), len(zx), device=self.device)               # (bs, num_chunks*chunk_size)
+        # # print(log_prob.size())
+        # for c in torch.arange(len(zx)).chunk(self.num_chunks):
+        #     logit_x, logit_a, logit_y = self.network(zx[c, :], za[c, :], zy[c, :]) # (chunk_size, no, n_xo), (chunk_size, no, no, n_ao)
+        #     log_prob_x = Categorical(logits=logit_x).log_prob(xx)                  # (bs, chunk_size, no)
+        #     log_prob_a = Categorical(logits=logit_a).log_prob(xa)                  # (bs, chunk_size, no, no)
+        #     log_prob[:, c] = log_prob_x.sum(dim=1) + log_prob_a.sum(dim=(1, 2))
+        logit_x, logit_a, logit_y = self.network(zx, za, zy)
+        log_prob_x = Categorical(logits=logit_x).log_prob(xx)
+        log_prob_a = Categorical(logits=logit_a).log_prob(xa)
+        log_prob = log_prob_x.sum(dim=1) + log_prob_a.sum(dim=(1, 2))
         return log_prob
     
     def cm_logpdf(self,
@@ -645,9 +705,13 @@ class CategoricalDecoder(nn.Module):
 
         return log_prob
 
-    def sample(self, z_node: torch.Tensor, z_edge: torch.Tensor):
-        logit_node, logit_edge = self.network(z_node, z_edge)
-        x_node = Categorical(logits=logit_node).sample()
-        x_edge = Categorical(logits=logit_edge).sample()
-        x_node, x_edge = cat2ohe(x_node, x_edge, self.network.nk_no, self.network.nk_eo)
-        return x_node.cpu(), x_edge.cpu()
+    def sample(self,
+               zx: torch.Tensor,                                                   # (bs, ni, n_xi)
+               za: torch.Tensor,                                                   # (bs, ni, ni, n_ai)
+               zy: torch.Tensor                                                    # (bs, n_yi)
+               ):
+        logit_x, logit_a, logit_y = self.network(zx, za, zy)                       # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
+        xx = Categorical(logits=logit_x).sample()                                  # (bs, no)
+        xa = Categorical(logits=logit_a).sample()                                  # (bs, no, no)
+        xx, xa = cat2ohe(xx, xa, self.network.n_xo, self.network.n_ao)             # (bs, no, n_xo), (bs, no, no, n_ao)
+        return xx.cpu(), xa.cpu()
