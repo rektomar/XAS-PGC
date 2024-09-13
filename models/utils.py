@@ -663,24 +663,6 @@ class CategoricalDecoder(nn.Module):
         log_prob = log_prob_x.sum(dim=1) + log_prob_a.sum(dim=(1, 2))
         return log_prob
     
-    def cm_logpdf(self,
-                  x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
-                  x_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
-                  z_node: torch.Tensor,                                            # (bs, nd_ni, nk_ni)
-                  z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
-                  ):
-        x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
-        x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
-        x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
-
-        log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
-        for c in torch.arange(len(z_node)).chunk(self.num_chunks):
-            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
-            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
-            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
-            log_prob[:, c] = log_prob_node.sum(dim=-1) + log_prob_edge.sum(dim=(-2, -1))
-
-        return log_prob
     
     def cm_logpdf_marginal(self,
                 x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
@@ -688,19 +670,20 @@ class CategoricalDecoder(nn.Module):
                 m_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
                 m_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
                 z_node: torch.Tensor,                                            # (bs, nd_ni, nk_ni)
-                z_edge: torch.Tensor                                             # (bs, nd_ni, nd_ni, nk_ei)
+                z_edge: torch.Tensor,                                            # (bs, nd_ni, nd_ni, nk_ei)
+                z_feat: torch.Tensor
                 ):
         x_node, x_edge = ohe2cat(x_node, x_edge)                                 # (bs, nd_no), (bs, nd_no, nd_no)
         x_node = x_node.unsqueeze(1).float()                                     # (bs, 1, nd_no)
         x_edge = x_edge.unsqueeze(1).float()                                     # (bs, 1, nd_no, nd_no)
+        m_node = m_node.unsqueeze(1)                                             # (bs, 1, nd_no)
+        m_edge = m_edge.unsqueeze(1)                                             # (bs, 1, nd_no, nd_no)
 
         log_prob = torch.zeros(len(x_node), len(z_node), device=self.device)     # (bs, num_chunks*chunk_size)
         for c in torch.arange(len(z_node)).chunk(self.num_chunks):
-            logit_node, logit_edge = self.network(z_node[c, :], z_edge[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
-            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)      # (bs, chunk_size, nd_no)
-            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)      # (bs, chunk_size, nd_no, nd_no)
-            log_prob_node *= m_node.unsqueeze(1)
-            log_prob_edge *= m_edge.unsqueeze(1)
+            logit_node, logit_edge, _ = self.network(z_node[c, :], z_edge[c, :], z_feat[c, :])    # (chunk_size, nd_no, nk_no), (chunk_size, nd_no, nd_no, nk_eo)
+            log_prob_node = Categorical(logits=logit_node).log_prob(x_node)*m_node      # (bs, chunk_size, nd_no)
+            log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge)*m_edge      # (bs, chunk_size, nd_no, nd_no)
             log_prob[:, c] = log_prob_node.sum(dim=-1) + log_prob_edge.sum(dim=(-2, -1))
 
         return log_prob
