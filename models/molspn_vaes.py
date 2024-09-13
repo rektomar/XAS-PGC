@@ -91,11 +91,10 @@ class MolSPNVAEFSort(nn.Module):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-<<<<<<< HEAD
         z_node, z_edge, _ = self.sampler(num_samples)
         x_node, x_edge = self.decoder.sample(z_node, z_edge)
         return x_node, x_edge
-    
+
     def sample_conditional(self, x_node, x_edge, m_node, m_edge, n_mc_samples=16384):
         # interpreting decoder as continuous mixture
         # TODO: move this function to Decoder
@@ -111,11 +110,6 @@ class MolSPNVAEFSort(nn.Module):
         xc_edge[m_edge] = x_edge[m_edge].cpu()
 
         return xc_node, xc_edge
-=======
-        zx, za, zy, _ = self.sampler(num_samples)
-        xx, xa = self.decoder.sample(zx, za, zy)
-        return xx, xa
->>>>>>> d98ed3aadc37e01fc3e6aaa8fcc1378dc1ee43da
 
 class MolSPNVAEXSort(nn.Module):
     def __init__(self,
