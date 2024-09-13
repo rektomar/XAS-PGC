@@ -97,19 +97,10 @@ class MolSPNVAEFSort(nn.Module):
 
     def sample_conditional(self, x, a, mx, ma, n_mc_samples=16384):
         # interpreting decoder as continuous mixture
-        # TODO: move this function to Decoder
         # TODO: add mum_samples
-        zx, za, zy, w = self.sampler(n_mc_samples)
-
-        # marginal probs for each component
-        ll_marg = self.decoder.cm_logpdf_marginal(x, a, mx, ma, zx, za, zy) 
-        k = Categorical(logits=w+ll_marg).sample() # add num_samples here 
-        xc, ac = self.decoder.sample(zx[k], za[k], zy[k])
-
-        xc[mx] = x[mx].cpu()
-        ac[ma] = a[ma].cpu()
-
-        return xc, ac
+        zx, za, zy, logw = self.sampler(n_mc_samples)
+        xxc, xac = self.decoder.sample_conditional(x, a, mx, ma, zx, za, zy, logw)
+        return xxc, xac
 
 class MolSPNVAEXSort(nn.Module):
     def __init__(self,

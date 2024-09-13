@@ -698,3 +698,24 @@ class CategoricalDecoder(nn.Module):
         xa = Categorical(logits=logit_a).sample()                                  # (bs, no, no)
         xx, xa = cat2ohe(xx, xa, self.network.n_xo, self.network.n_ao)             # (bs, no, n_xo), (bs, no, no, n_ao)
         return xx.cpu(), xa.cpu()
+    
+    def sample_conditional(self,
+               x:  torch.Tensor,                                                    # (bs, nd_no, nk_no)
+               a:  torch.Tensor,                                                    # (bs, nd_no, nd_no, nk_eo)
+               mx: torch.Tensor,                                                   # (bs, nd_no, nk_no)
+               ma: torch.Tensor,                                                   # (bs, nd_no, nd_no, nk_eo)
+               zx: torch.Tensor,                                                   # (bs, ni, n_xi)
+               za: torch.Tensor,                                                   # (bs, ni, ni, n_ai)
+               zy: torch.Tensor,
+               logw:  torch.Tensor):
+        # interpreting decoder as continuous mixture
+        # TODO: add mum_samples
+
+        # marginal probs for each component
+        logpdf_marg = self.cm_logpdf_marginal(x, a, mx, ma, zx, za, zy) 
+        k = Categorical(logits=logw+logpdf_marg).sample() # add num_samples here 
+        xc, ac = self.sample(zx[k], za[k], zy[k])
+
+        xc[mx] = x[mx].cpu()
+        ac[ma] = a[ma].cpu()
+        return xc, ac
