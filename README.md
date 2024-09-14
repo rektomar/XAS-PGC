@@ -20,7 +20,7 @@ conda create --name molspn python==3.8.5
 
 source activate molspn
 
-pip install torch==2.1.2 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 pip install rdkit==2022.9.5
 pip install tqdm==4.65.0
 pip install pandas==2.0.3
