@@ -707,10 +707,9 @@ class CategoricalDecoder(nn.Module):
                zx: torch.Tensor,                                                   # (bs, ni, n_xi)
                za: torch.Tensor,                                                   # (bs, ni, ni, n_ai)
                zy: torch.Tensor,
-               logw:  torch.Tensor):
+               logw:  torch.Tensor
+               ):
         # interpreting decoder as continuous mixture
-        # TODO: add mum_samples
-
         # marginal probs for each component
         logpdf_marg = self.cm_logpdf_marginal(x, a, mx, ma, zx, za, zy) 
         k = Categorical(logits=logw+logpdf_marg).sample() # add num_samples here 

@@ -95,11 +95,20 @@ class MolSPNVAEFSort(nn.Module):
         xx, xa = self.decoder.sample(zx, za, zy)
         return xx, xa
 
-    def sample_conditional(self, x, a, mx, ma, n_mc_samples=16384):
+    def sample_conditional(self, x, a, mx, ma, num_samples, n_mc_samples=16384):
         # interpreting decoder as continuous mixture
-        # TODO: add mum_samples
         zx, za, zy, logw = self.sampler(n_mc_samples)
-        xxc, xac = self.decoder.sample_conditional(x, a, mx, ma, zx, za, zy, logw)
+        
+        # NOTE: it would make more sense to propagate 'num_samples'
+        #       to Decoders sample function in the future
+        x_r = x.repeat_interleave(num_samples, dim=0)
+        a_r = a.repeat_interleave(num_samples, dim=0)
+        mx_r = mx.repeat_interleave(num_samples, dim=0)
+        ma_r = ma.repeat_interleave(num_samples, dim=0)
+
+        xxc, xac = self.decoder.sample_conditional(x_r, a_r, mx_r, ma_r, zx, za, zy, logw)
+        xxc = xxc.reshape(num_samples, *x.shape)
+        xac = xac.reshape(num_samples, *a.shape)
         return xxc, xac
 
 class MolSPNVAEXSort(nn.Module):
