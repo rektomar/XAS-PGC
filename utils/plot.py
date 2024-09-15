@@ -23,7 +23,7 @@ def get_hit(mol, patt):
 
     return hit_ats, hit_bonds
 
-def grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=False):
+def plot_grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=False):
     """Function plots aligned grid of molecules with highlited patterns.
     Parameters:
         mol (list[list[str]]): SMILE molecule to plot
@@ -60,7 +60,7 @@ def grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=False):
     else:    
         img.save(f'plots/{fname}.png')
 
-def grid_unconditional(model, nrows, ncols, max_atoms, atom_list, fname="unco_mols", useSVG=False):
+def plot_grid_unconditional(model, nrows, ncols, max_atoms, atom_list, fname="unco_mols", useSVG=False):
     x, a = resample_invalid_mols(model, nrows*ncols, atom_list, max_atoms)
     vmols, _ = get_vmols(x, a, atom_list, correct_mols=True)
     img = MolsToGridImage(vmols[:nrows*ncols], molsPerRow=ncols, subImgSize=(400, 400), useSVG=useSVG)
@@ -81,9 +81,9 @@ if __name__ == "__main__":
     # smile_mols = [slist, slist]
     # smart_patts = ['c1c2ccccc2ccc1', 'C=O']
 
-    # grid_conditional(smile_mols, smart_patts)
+    # plot_grid_conditional(smile_mols, smart_patts)
 
     slist = ['OCCC1C2=CC[O+]1C2', 'OC1=CNC2=C1COC2', 'CC1C2=CC[O+]1C2', 'C1=C2C[O+](C1)C2', 'OC1=NOC2=C1COC2']
     smls = [slist]
     patts_smls = ['C1OCC=C1']
-    grid_conditional(smls, patts_smls)
+    plot_grid_conditional(smls, patts_smls)
