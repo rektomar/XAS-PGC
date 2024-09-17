@@ -243,92 +243,114 @@ class DecoderFFNN(nn.Module):
 
 class GraphXBlock(nn.Module):
     def __init__(self,
-                 nk_ni: int,
-                 nk_ei: int,
-                 nk_no: int,
-                 nk_eo: int,
-                 nh_node: int,
-                 nh_edge: int,
-                 nl_node: int,
-                 nl_edge: int,
-                 nl_mm: int,
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+
+                 l_m: int,
+
                  final_act: Optional[any]=None,
                  device: Optional[str]='cuda'
                  ):
         super(GraphXBlock, self).__init__()
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.n_xi = n_xi
+        self.n_ai = n_ai
+        # self.n_yi = n_yi
 
-        self.nk_no = nk_no
-        self.nk_eo = nk_eo
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        # self.n_yo = n_yo
 
-        self.nh_node = nh_node
-        self.nh_edge = nh_edge
+        self.h_x = h_x
+        self.h_a = h_a
+        # self.h_y = h_y
 
-        self.net_ni = ffnn_network(nk_ni, nh_node,  nl_node, True, nn.ReLU())
-        self.net_ei = ffnn_network(nk_ei, nh_edge,  nl_edge, True, nn.ReLU())
+        self.net_xi = ffnn_network(n_xi, h_x,  l_x, True, nn.ReLU())
+        self.net_ai = ffnn_network(n_ai, h_a,  l_a, True, nn.ReLU())
 
-        self.net_nm = ffnn_network(nh_edge, nh_node, nl_mm, True, nn.ReLU())
-        self.net_em = ffnn_network(nh_node, nh_edge, nl_mm, True, nn.ReLU())
+        self.net_xm = ffnn_network(h_x, h_x, l_m, True, nn.ReLU())
+        self.net_am = ffnn_network(h_a, h_a, l_m, True, nn.ReLU())
 
-        self.lin_nm = nn.Linear(nh_node, nh_node)
-        self.lin_em = nn.Linear(nh_edge, nh_edge)
+        self.lin_xm = nn.Linear(h_x, h_x)
+        self.lin_am = nn.Linear(h_a, h_a)
 
-        self.net_no = ffnn_network(nh_node, nk_no,  nl_node, True, final_act)
-        self.net_eo = ffnn_network(nh_edge, nk_eo,  nl_edge, True, final_act)
+        self.net_xo = ffnn_network(h_x, n_xo,  l_x, True, final_act)
+        self.net_ao = ffnn_network(h_a, n_ao,  l_a, True, final_act)
+
         self.device = device
 
-    def forward(self, x_node, x_edge):                      # (bs, nd_ni, nk_ni), (bs, nd_ni, nd_ni, nk_ei)
-        nd_ni = x_node.shape[1]
-        h_node = self.net_ni(x_node)                        # (bs, nd_ni, nh_node)
-        h_edge = self.net_ei(x_edge)                        # (bs, nd_ni, nd_ni, nh_edge)
+    def forward(self, x, a):                                     # (bs, ni, n_xi), (bs, ni, ni, n_ai)
+        ni = x.shape[1]
+        hx = self.net_ni(x)                                      # (bs, ni, h_x)
+        ha = self.net_ei(a)                                      # (bs, ni, ni, h_a)
 
-        h_node = h_node.sum(dim=1)                          # (bs, nh_node)
-        h_edge = h_edge.sum(dim=(1,2))                      # (bs, nh_edge)
-        h_node = self.lin_nm(h_node) + self.net_nm(h_edge)  # (bs, nh_node)
-        h_edge = self.lin_em(h_edge) + self.net_em(h_node)  # (bs, nh_edge)
+        hx = hx.sum(dim=1)                                       # (bs, h_x)
+        ha = ha.sum(dim=(1,2))                                   # (bs, h_a)
+        hx = self.lin_xm(hx) + self.net_xm(ha)                   # (bs, h_x)
+        ha = self.lin_em(ha) + self.net_em(hx)                   # (bs, h_a)
 
-        h_node = h_node.unsqueeze(1).expand(-1, nd_ni, -1)                      # (bs, nd_ni, nk_ni)
-        h_edge = h_edge.unsqueeze(1).unsqueeze(2).expand(-1, nd_ni, nd_ni, -1)  # (bs, nd_ni, nd_ni, nk_ei)
+        hx = hx.unsqueeze(1).expand(-1, ni, -1)                  # (bs, ni, n_xi)
+        ha = ha.unsqueeze(1).unsqueeze(2).expand(-1, ni, ni, -1) # (bs, ni, ni, n_ai)
 
-        h_node = self.net_no(h_node)                        # (bs, nd_ni, nk_no)
-        h_edge = self.net_eo(h_edge)                        # (bs, nd_ni, nd_ni, nk_eo)
-        return h_node, h_edge
+        hx = self.net_no(hx)                                     # (bs, ni, n_xo)
+        ha = self.net_eo(ha)                                     # (bs, ni, ni, n_ao)
+        return hx, ha
 
 
 class GraphXCoder(nn.Module):
     def __init__(self,
-                 nk_ni: int,
-                 nk_ei: int,
-                 nk_no: int,
-                 nk_eo: int,
-                 nh_n: int,
-                 nh_e: int,
-                 nl_n: int,
-                 nl_e: int,
-                 nl_m: int,
-                 nb: int,
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+                 l_m: int,
+
+                 n_b: int,
+
                  device: Optional[str]='cuda'
                  ):
         super(GraphXCoder, self).__init__()
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.n_xi = n_xi
+        self.n_ai = n_ai
 
-        self.nk_no = nk_no
-        self.nk_eo = nk_eo
+        self.n_xo = n_xo
+        self.n_ao = n_ao
 
         self.blocks = nn.ModuleList()
-        self.blocks.append(GraphXBlock(nk_ni, nk_ei, nh_n, nh_e, nh_n, nh_e, nl_n, nl_e, nl_m, device=device))
-        for i in range(nb):
-            self.blocks.append(GraphXBlock(nh_n, nh_e, nh_n, nh_e, nh_n, nh_e, nl_n, nl_e, nl_m, device=device))
+        self.blocks.append(GraphXBlock(n_xi, n_ai, n_yi, h_x, h_a, h_y, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
+        for i in range(n_b):
+            self.blocks.append(GraphXBlock(h_x, h_a, h_y, h_x, h_a, h_y, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
             # if batch_norm:
             #     self.blocks.append(nn.LayerNorm(nh[i + 1].item()))
-        self.blocks.append(GraphXBlock(nh_n, nh_e, nk_no, nk_eo, nh_n, nh_e, nl_n, nl_e, nl_m, device=device))
+        self.blocks.append(GraphXBlock(h_x, h_a, h_y, n_xo, n_ao, n_yo, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
 
         self.device = device
 
-    def forward(self, x_node, x_edge):
-        h_node, h_edge = x_node, x_edge # (bs, nd_ni, nk_ni), (bs, nd_ni, nd_ni, nk_ei)
+    def forward(self, x, a):
+        h_node, h_edge = x, a
         for block in self.blocks:
             h_node, h_edge = block(h_node, h_edge)
         h_edge = zero_diagonal(h_edge, self.device)

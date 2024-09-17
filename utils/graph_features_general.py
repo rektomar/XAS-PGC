@@ -18,7 +18,7 @@ class ExtraFeatures:
             self.nf_y = 0
         elif self.type == 'abs':
             self.nf_x = 1
-            self.nf_a = 0
+            self.nf_a = 1
             self.nf_y = 0
         elif self.type == 'cycles':
             self.nf_x = 3
@@ -48,7 +48,7 @@ class ExtraFeatures:
                     )
         elif self.type == 'abs':
             return (torch.arange(x.shape[1]).repeat(x.shape[0], 1).unsqueeze(2).type_as(x), # (bs, n, 1)
-                    torch.zeros((*a.shape[:-1], 0)).type_as(a), # (bs, n, n, 0)
+                    torch.diag(torch.arange(x.shape[1])).repeat(x.shape[0], 1, 1).unsqueeze(3).type_as(a), # (bs, n, n, 1)
                     torch.zeros(( x.shape[0],   0)).type_as(x)  # (bs, 0)
                     )
         elif self.type == 'cycles':
