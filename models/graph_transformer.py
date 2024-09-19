@@ -176,7 +176,7 @@ class TransformerLayer(nn.Module):
                  df_n: int = 2048,
                  df_e: int = 128,
                  df_y: int = 128,
-                 dropout: float = 0.0,
+                 dropout: float = 0.1,
                  eps: float = 1e-5
                  ):
         super().__init__()

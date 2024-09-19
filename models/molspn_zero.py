@@ -4,7 +4,6 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from utils.graphs import flatten_graph, unflatt_graph
 from models.utils import ohe2cat, cat2ohe
 
 
@@ -136,16 +135,15 @@ class MolSPNZeroSort(MolSPNZeroCore):
         super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device, regime, dc_n, dc_e)
 
         self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=self.device), dim=1), requires_grad=True)
+        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
 
     def _forward(self, x, a):
         ll_nodes = self.network_nodes(x)
+        
         if   self.regime == 'cat':
-            m = torch.tril(torch.ones(len(x), self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
-            ll_edges = self.network_edges(a[m].view(-1, self.nd_edges))
+            ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges))
         elif self.regime == 'deq':
-            m = torch.tril(torch.ones(len(x), self.nk_edges, self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
-            l = a[m].view(-1, self.nk_edges, self.nd_edges)
-            ll_edges = self.network_edges(torch.movedim(l, 1, -1))
+            ll_edges = self.network_edges(a[:, self.m, :].view(-1, self.nd_edges, self.nk_edges))
         else:
             os.error('Unknown regime')
 
@@ -167,14 +165,11 @@ class MolSPNZeroSort(MolSPNZeroCore):
             l[i, :] = self.network_edges.sample(1, class_idx=c).cpu()
 
         if   self.regime == 'cat':
-            m = torch.tril(torch.ones(num_samples, self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
             a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
-            a[m] = l.view(num_samples*self.nd_edges)
+            a[:, self.m] = l
         elif self.regime == 'deq':
-            m = torch.tril(torch.ones(num_samples, self.nk_edges, self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
-            a = torch.zeros(num_samples, self.nk_edges, self.nd_nodes, self.nd_nodes)
-            l = torch.movedim(l, -1, 1)
-            a[m] = l.reshape(num_samples*self.nd_edges*self.nk_edges)
+            a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges)
+            a[:, self.m, :] = l
         else:
             os.error('Unknown regime')
 
@@ -194,76 +189,6 @@ class MolSPNZeroSort(MolSPNZeroCore):
 
 
 
-
-
-
-class GraphSPNZeroCore(nn.Module):
-    def __init__(self, nd_n, nk_n, nk_e, ns, ni, nl, nr, device='cuda'):
-        super().__init__()
-        nd_e = nd_n**2
-        self.nd_nodes = nd_n
-        self.nk_nodes = nk_n
-        self.nk_edges = nk_e
-
-        nd = nd_n + nd_e
-        # The implementation of the Einsum networks does not allow for hybrid
-        # probability distributions in the input layer (e.g., two Categorical
-        # distributions with different number of categories). Therefore, we have
-        # to take the maximum number of categories and then truncate the adjacency
-        # matrix when sampling the bonds (as also mentioned below).
-        nk = max(nk_n, nk_e)
-
-        graph = Graph.random_binary_trees(nd, nl, nr)
-
-        args = EinsumNetwork.Args(
-            num_var=nd,
-            num_input_distributions=ni,
-            num_sums=ns,
-            exponential_family=ExponentialFamilyArray.CategoricalArray,
-            exponential_family_args={'K': nk},
-            use_em=False)
-
-        self.network = EinsumNetwork.EinsumNetwork(graph, args)
-        self.network.initialize()
-
-        self.device = device
-        self.to(device)
-
-    @abstractmethod
-    def _forward(self, x, a):
-        pass
-
-    def forward(self, x, a):
-        x, a = ohe2cat(x, a)
-        return self._forward(x, a)
-
-    def logpdf(self, x, a):
-        return self(x, a).mean()
-
-    def sample(self, num_samples):
-        z = self.network.sample(num_samples).to(torch.int).cpu()
-        x, a = unflatt_graph(z, self.nd_nodes, self.nd_nodes)
-        # We have to truncate the adjacency matrix since the implementation of the
-        # Einsum networks does not allow for two different Categorical distributions
-        # in the input layer (as explained above).
-        a[a > 3] = 3
-        return cat2ohe(x, a, self.nk_nodes, self.nk_edges)
-
-
-class GraphSPNZeroNone(GraphSPNZeroCore):
-    def __init__(self, nd_n, nk_n, nk_e, ns, ni, nl, nr, device='cuda'):
-        super().__init__(nd_n, nk_n, nk_e, ns, ni, nl, nr, device)
-
-    def _forward(self, x, a):
-        return self.network(flatten_graph(x, a).to(self.device))
-
-
-class GraphSPNZeroSort(GraphSPNZeroCore):
-    def __init__(self, nd_n, nk_n, nk_e, ns, ni, nl, nr, device='cuda'):
-        super().__init__(nd_n, nk_n, nk_e, ns, ni, nl, nr, device)
-
-    def _forward(self, x, a):
-        return self.network(flatten_graph(x, a).to(self.device))
 
 
 MODELS = {

@@ -42,7 +42,7 @@ def run_epoch(model, loader, optimizer=[], verbose=False):
             nll.backward()
             optimizer.step()
 
-    return nll_sum.item()
+    return nll_sum.item() / len(loader)
 
 METRIC_TYPES = ['valid', 'unique', 'novel', 'score']
 

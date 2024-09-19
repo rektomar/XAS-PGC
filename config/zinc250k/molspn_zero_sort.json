@@ -6,14 +6,14 @@
         "nd_n": 38,
         "nk_n": 10,
         "nk_e": 4,
-        "nl_n": 3,
-        "nl_e": 3,
-        "nr_n": 40,
-        "nr_e": 40,
+        "nl_n": 1,
+        "nl_e": 1,
+        "nr_n": 50,
+        "nr_e": 50,
         "ns_n": 40,
         "ns_e": 40,
-        "ni_n": 50,
-        "ni_e": 50,
+        "ni_n": 80,
+        "ni_e": 80,
         "dc_n": 0.6,
         "dc_e": 0.6,
         "regime": "cat",
@@ -23,11 +23,12 @@
     "optimizer_hyperpars": {
         "lr": 0.05,
         "betas": [
-            0.9,
-            0.999
-        ]
+            0.91,
+            0.8
+        ],
+        "weight_decay": 2e-4
     },
     "num_epochs": 1000,
-    "batch_size": 512,
+    "batch_size": 256,
     "seed": 0
 }

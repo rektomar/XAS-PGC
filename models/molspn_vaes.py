@@ -1,37 +1,10 @@
 import torch
 import torch.nn as nn
-from torch.distributions import Categorical
 
 from typing import Optional
 from models.utils import CategoricalDecoder, GaussianEncoder, EncoderFFNN , DecoderFFNN, GaussianSampler, GraphXCoder
 from models.graph_transformer import GraphTransformer
 from utils.graph_features_general import ExtraFeatures
-
-# def log_prob(self, x: torch.Tensor, n_mc_samples: int = 1, n_chunks: int = None):
-#     # Compute KL divergence
-#     mu, logvar = self.encoder(x).split(self.nh, dim=1)
-#     kld = -0.5 * torch.sum(1 + logvar - mu ** 2 - logvar.exp(), dim=[i+1 for i in range(x.ndim-1)])
-
-#     # Compute reconstruction error with n_mc_samples
-#     mu = mu.repeat_interleave(n_mc_samples, 0)
-#     logvar = logvar.repeat_interleave(n_mc_samples, 0)
-#     std = torch.exp(0.5 * logvar)
-#     z = mu + std * torch.randn_like(std)
-
-#     x_recon = []
-#     z_chunks = tuple([z]) if n_chunks is None else z.split(int(z.size(0) / n_chunks), 0)
-#     for z_chunk in z_chunks:
-#         x_recon.append(self.decoder(z_chunk))
-#     x_recon = torch.cat(x_recon, dim=0)
-
-#     all_recon = self.recon_loss(x_recon, x.repeat_interleave(n_mc_samples, 0))
-#     recon = all_recon.view(x.shape[0], n_mc_samples, -1).sum(dim=[i+2 for i in range(x.ndim-1)])
-
-#     # Compute log_prob and average over n_mc_samples
-#     log_prob = -(kld[..., None] + recon)
-#     log_prob = log_prob.logsumexp(dim=1) - np.log(n_mc_samples)
-
-#     return log_prob
 
 
 class MolSPNVAEFSort(nn.Module):
@@ -203,25 +176,12 @@ class MolSPNVAETSort(nn.Module):
         nf_a = self.features_g.nf_a
         nf_y = self.features_g.nf_y
 
-        encoder_network = EncoderFFNN(
-            nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, 2*nz_x, 2*nz_a, 2*nz_y, mh_x, mh_a, mh_y, 8, 8, 4, 4, device=device
+        encoder_network = GraphTransformer(
+            nl, nx_x+nf_x, nx_a+nf_a, nf_y, 2*(nz_x+nf_x), 2*(nz_a+nf_a), 2*nf_y, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
         )
-        # decoder_network = DecoderFFNN(
-        #     nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, mh_x, mh_a, mh_y, 8, 8, 4, 4, device=device
-        # )
-        # encoder_network = GraphTransformer(
-        #     nl, nx_x+nf_x, nx_a+nf_a, nf_y, 2*(nz_x+nf_x), 2*(nz_a+nf_a), 2*nf_y, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
-        # )
         decoder_network = GraphTransformer(
             nl, nz_x+nf_x, nz_a+nf_a, nf_y, nx_x, nx_a, 0, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
         )
-
-        # encoder_network = GraphTransformer(
-        #     nl, nx_x+nf_x, nx_a+nf_a, nf_y, 2*(nz_x+nf_x), 2*(nz_a+nf_a), 2*nf_y, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
-        # )
-        # decoder_network = GraphTransformer(
-        #     nl, nz_x+nf_x, nz_a+nf_a, nf_y, nx_x, nx_a, 0, mh_x, mh_a, mh_y, n_head, nh_x, nh_a, nh_y, df_x, df_a, df_y, device=device
-        # )
 
         self.encoder = GaussianEncoder(encoder_network, device=device)
         self.decoder = CategoricalDecoder(decoder_network, device=device)
