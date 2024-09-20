@@ -8,7 +8,7 @@
         "nz": 38,
         "nz_x": 2,
         "nz_a": 4,
-        "nz_y": 11,
+        "nz_y": 0,
         "nl": 2,
         "nh_x": 128,
         "nh_a": 64,
@@ -20,7 +20,7 @@
         "df_x": 256,
         "df_a": 64,
         "df_y": 64,
-        "ftype": "all",
+        "ftype": "none",
         "device": "cuda"
     },
     "optimizer": "adam",
