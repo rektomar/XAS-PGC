@@ -40,7 +40,6 @@ class MolSPNVAEFSort(nn.Module):
         # decoder_network = DecoderFFNN(
         #     nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         # )
-
         # self.encoder = GaussianEncoder(   encoder_network,   device=device)
         # self.decoder = CategoricalDecoder(decoder_network,   device=device)
         # self.sampler = GaussianSampler(nz, nz_x, nz_a, nz_y, device=device)
@@ -51,7 +50,6 @@ class MolSPNVAEFSort(nn.Module):
         decoder_network = DecoderFFNN(
             nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         )
-
         self.encoder = CategoricalEncoder(encoder_network,      device=device)
         self.decoder = CategoricalDecoder(decoder_network,      device=device)
         self.sampler = CategoricalSampler(nz, nz_x, nz_a, nz_y, device=device)

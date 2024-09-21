@@ -713,8 +713,8 @@ class CategoricalEncoder(nn.Module):
         hx, ha, hy = self.network(x, a, y)                                   # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
         my, vy = hy.chunk(2, dim=-1)                                         # (bs, n_yo/2), (bs, n_yo/2)
 
-        p_x = Categorical(probs=torch.full_like(hx, 1.0 / hx.shape[-1]))
-        p_a = Categorical(probs=torch.full_like(ha, 1.0 / ha.shape[-1]))
+        p_x = Categorical(logits=torch.ones_like(hx))
+        p_a = Categorical(logits=torch.ones_like(ha))
         q_x = Categorical(logits=hx)
         q_a = Categorical(logits=ha)
 
