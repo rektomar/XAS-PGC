@@ -1,5 +1,5 @@
 import torch
-from models.utils import zero_diagonal
+from models.utils import set_diagonal
 
 # The following code is based on https://github.com/cvignac/DiGress
 
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     x = torch.nn.functional.one_hot(x.to(torch.int64), num_classes=nk_ni)
     a = torch.nn.functional.one_hot(a.to(torch.int64), num_classes=nk_ei)
 
-    a = zero_diagonal(a, device)
+    a = set_diagonal(a, device, 0.)
     a = (a + a.transpose(1, 2)) / 2
 
     # features = DummyExtraFeatures()

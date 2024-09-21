@@ -17,11 +17,11 @@ def ohe2cat(x, a):
     a = torch.argmax(a, dim=-1)
     return x, a
 
-def zero_diagonal(a, device):
-    bs, nd_node, _, nk_edge = a.shape
-    mask = torch.eye(nd_node, dtype=bool, device=device)
-    mask = mask.unsqueeze(0).unsqueeze(3).expand(bs, -1, -1, nk_edge)
-    a[mask] = 0.
+def set_diagonal(a, device, val=-torch.inf):
+    mask = torch.eye(a.shape[1], dtype=bool, device=device)
+    v = torch.full((a.shape[-1],), val, device=device)
+    v[-1] = 0.
+    a[:, mask, :] = v
     return a
 
 def ffnn_network(ni: int,
@@ -37,7 +37,7 @@ def ffnn_network(ni: int,
         network = nn.Sequential()
         for i in range(len(nh) - 1):
             network.append(nn.Linear(nh[i], nh[i + 1]))
-            network.append(nn.ReLU())
+            network.append(nn.SELU())
             if batch_norm:
                 # network.append(nn.BatchNorm1d(nh[i + 1]))
                 network.append(nn.LayerNorm(nh[i + 1].item()))
@@ -96,6 +96,174 @@ def conv_network(nz: int,
     return network
 
 
+class EncoderFFNNTril(nn.Module):
+    def __init__(self,
+                 ni: int,
+                 no: int,
+
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+                 l_b: int,
+
+                 device: Optional[str]='cuda'
+                 ):
+        super(EncoderFFNNTril, self).__init__()
+
+        di = ni * (ni - 1) // 2
+        do = no * (no - 1) // 2
+
+        self.ni = ni
+        self.no = no
+
+        self.n_xi = n_xi
+        self.n_ai = n_ai
+        self.n_yi = n_yi
+
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
+
+        self.h_x = h_x
+        self.h_a = h_a
+        self.h_y = h_y
+
+        self.di = di
+        self.do = do
+
+        self.net_x = ffnn_network(    ni*n_xi,                  h_x, l_x, True, nn.ReLU())
+        self.net_a = ffnn_network(    di*n_ai,                  h_a, l_a, True, nn.ReLU())
+        self.net_y = ffnn_network(       n_yi,                  h_y, l_y, True, nn.ReLU())
+        self.net_b = ffnn_network(h_x+h_a+h_y, no*n_xo+do*n_ao+n_yo, l_b, True)
+
+        self.device = device
+
+    def forward(self, x, a, y):                            # (bs, ni, n_xi), (bs, ni, ni, n_ai), (bs, n_yi)
+        mi = torch.tril(torch.ones(self.ni, self.ni, dtype=torch.bool, device=self.device), diagonal=-1)
+        mo = torch.tril(torch.ones(self.no, self.no, dtype=torch.bool, device=self.device), diagonal=-1)
+
+        xx = x.reshape(-1, self.ni  *self.n_xi)            # (bs, ni*n_xi)
+        aa = a[:, mi, :].reshape(-1, self.di*self.n_ai)    # (bs, ni*(ni-1)/2*n_ai)
+
+        hx = self.net_x(xx)                                # (bs, h_x)
+        ha = self.net_a(aa)                                # (bs, h_a)
+        hy = self.net_y(y)                                 # (bs, h_y)
+
+        hh = torch.cat((hx, ha, hy), dim=1)                # (bs, h_x + h_a + h_y)
+        hb = self.net_b(hh)                                # (bs, no*n_xo + no*(no-1)/2*n_ao + n_yo)
+
+        dx = self.no*self.n_xo
+        da = self.do*self.n_ao
+
+        hx = hb[:, :dx]                                    # (bs, no*n_xo)
+        ha = hb[:, dx:dx+da]                               # (bs, no*(no-1)/2**n_ao)
+        hy = hb[:, dx+da:]                                 # (bs, n_yo)
+
+        hx = hx.reshape(-1, self.no, self.n_xo)            # (bs, no, n_xo)
+        ha = ha.reshape(-1, self.do, self.n_ao)            # (bs, no, no, n_ao)
+
+        sa = torch.zeros(x.shape[0], self.no, self.no, self.n_ao, device=self.device)
+        sa = set_diagonal(sa, self.device, 0.)
+        sa[:, mo,   :] = ha
+        sa[:, mo.T, :] = ha
+
+        return hx, sa, hy
+
+class DecoderFFNNTril(nn.Module):
+    def __init__(self,
+                 ni: int,
+                 no: int,
+
+                 n_xi: int,
+                 n_ai: int,
+                 n_yi: int,
+
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
+
+                 h_x: int,
+                 h_a: int,
+                 h_y: int,
+
+                 l_x: int,
+                 l_a: int,
+                 l_y: int,
+                 l_b: int,
+
+                 device: Optional[str]='cuda'
+                 ):
+        super(DecoderFFNNTril, self).__init__()
+
+        di = ni * (ni - 1) // 2
+        do = no * (no - 1) // 2
+
+        self.ni = ni
+        self.no = no
+
+        self.n_xi = n_xi
+        self.n_ai = n_ai
+        self.n_yi = n_yi
+
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
+
+        self.h_x = h_x
+        self.h_a = h_a
+        self.h_y = h_y
+
+        self.di = di
+        self.do = do
+
+        self.net_b = ffnn_network(ni*n_xi+di*n_ai+n_yi, h_x+h_a+h_a, l_b, True, nn.ReLU())
+        self.net_x = ffnn_network(                   h_x,   no*n_xo, l_x, True)
+        self.net_a = ffnn_network(                   h_a,   do*n_ao, l_a, True)
+        self.net_y = ffnn_network(                   h_a,      n_yo, l_y, True)
+
+        self.device = device
+
+    def forward(self, zx, za, zy):                    # (bs, ni, n_xi), (bs, ni, ni, n_ai), (bs, n_yi)
+        mi = torch.tril(torch.ones(self.ni, self.ni, dtype=torch.bool, device=self.device), diagonal=-1)
+        mo = torch.tril(torch.ones(self.no, self.no, dtype=torch.bool, device=self.device), diagonal=-1)
+
+        zx = zx.view(-1, self.ni*self.n_xi)           # (bs, ni*n_xi)
+        za = za[:, mi, :].view(-1, self.di*self.n_ai) # (bs, ni*(ni-1)/2*n_ai)
+
+        zz = torch.cat((zx, za, zy), dim=1)           # (bs, ni*n_xi + ni*(ni-1)/2*n_ai + n_yi)
+        hb = self.net_b(zz)                           # (bs, h_x + h_a + h_y)
+
+        hx = hb[:, :self.h_x]                         # (bs, h_x)
+        ha = hb[:, self.h_x:self.h_x+self.h_a]        # (bs, h_a)
+        hy = hb[:, self.h_x+self.h_a:]                # (bs, h_y)
+
+        hx = self.net_x(hx)                           # (bs, no*n_xo)
+        ha = self.net_a(ha)                           # (bs, no*(no - 1)/2*n_ao)
+        hy = self.net_y(hy)                           # (bs, n_yo)
+
+        hx = hx.view(-1, self.no, self.n_xo)          # (bs, nd_no, nk_no)
+        ha = ha.view(-1, self.do, self.n_ao)          # (bs, no*(no-1)/2*n_ao, nk_eo)
+
+        sa = torch.zeros(zx.shape[0], self.no, self.no, self.n_ao, device=self.device)
+        sa = set_diagonal(sa, self.device, 0.)
+        sa[:, mo,   :] = ha
+        sa[:, mo.T, :] = ha
+
+        return hx, sa, hy
+
+
 class EncoderFFNN(nn.Module):
     def __init__(self,
                  ni: int,
@@ -137,9 +305,9 @@ class EncoderFFNN(nn.Module):
         self.h_a = h_a
         self.h_y = h_y
 
-        self.net_x = ffnn_network( ni   *n_xi,                     h_x, l_x, True, nn.ReLU())
-        self.net_a = ffnn_network( ni**2*n_ai,                     h_a, l_a, True, nn.ReLU())
-        self.net_y = ffnn_network(       n_yi,                     h_y, l_y, True, nn.ReLU())
+        self.net_x = ffnn_network( ni   *n_xi,                     h_x, l_x, True, nn.SELU())
+        self.net_a = ffnn_network( ni**2*n_ai,                     h_a, l_a, True, nn.SELU())
+        self.net_y = ffnn_network(       n_yi,                     h_y, l_y, True, nn.SELU())
         self.net_b = ffnn_network(h_x+h_a+h_y, no*n_xo+no**2*n_ao+n_yo, l_b, True)
 
         self.device = device
@@ -164,11 +332,8 @@ class EncoderFFNN(nn.Module):
 
         hx = hx.reshape(-1, self.no, self.n_xo)            # (bs, no, n_xo)
         ha = ha.reshape(-1, self.no, self.no, self.n_ao)   # (bs, no, no, n_ao)
-        ha = zero_diagonal(ha, self.device)
-        ha = (ha + ha.transpose(1, 2)) / 2
 
         return hx, ha, hy
-
 
 class DecoderFFNN(nn.Module):
     def __init__(self,
@@ -211,7 +376,7 @@ class DecoderFFNN(nn.Module):
         self.h_a = h_a
         self.h_y = h_y
 
-        self.net_b = ffnn_network(ni*n_xi+ni**2*n_ai+n_yi, h_x+h_a+h_a, l_b, True, nn.ReLU())
+        self.net_b = ffnn_network(ni*n_xi+ni**2*n_ai+n_yi, h_x+h_a+h_a, l_b, True, nn.SELU())
         self.net_x = ffnn_network(                    h_x,  no   *n_xo, l_x, True)
         self.net_a = ffnn_network(                    h_a,  no**2*n_ao, l_a, True)
         self.net_y = ffnn_network(                    h_a,        n_yo, l_y, True)
@@ -235,127 +400,8 @@ class DecoderFFNN(nn.Module):
 
         hx = hx.view(-1, self.no, self.n_xo)          # (bs, nd_no, nk_no)
         ha = ha.view(-1, self.no, self.no, self.n_ao) # (bs, nd_no, nd_no, nk_eo)
-        ha = zero_diagonal(ha, self.device)
-        ha = (ha + ha.transpose(1, 2)) / 2
 
         return hx, ha, hy
-
-
-class GraphXBlock(nn.Module):
-    def __init__(self,
-                 n_xi: int,
-                 n_ai: int,
-                 n_yi: int,
-
-                 n_xo: int,
-                 n_ao: int,
-                 n_yo: int,
-
-                 h_x: int,
-                 h_a: int,
-                 h_y: int,
-
-                 l_x: int,
-                 l_a: int,
-                 l_y: int,
-
-                 l_m: int,
-
-                 final_act: Optional[any]=None,
-                 device: Optional[str]='cuda'
-                 ):
-        super(GraphXBlock, self).__init__()
-        self.n_xi = n_xi
-        self.n_ai = n_ai
-        # self.n_yi = n_yi
-
-        self.n_xo = n_xo
-        self.n_ao = n_ao
-        # self.n_yo = n_yo
-
-        self.h_x = h_x
-        self.h_a = h_a
-        # self.h_y = h_y
-
-        self.net_xi = ffnn_network(n_xi, h_x,  l_x, True, nn.ReLU())
-        self.net_ai = ffnn_network(n_ai, h_a,  l_a, True, nn.ReLU())
-
-        self.net_xm = ffnn_network(h_x, h_x, l_m, True, nn.ReLU())
-        self.net_am = ffnn_network(h_a, h_a, l_m, True, nn.ReLU())
-
-        self.lin_xm = nn.Linear(h_x, h_x)
-        self.lin_am = nn.Linear(h_a, h_a)
-
-        self.net_xo = ffnn_network(h_x, n_xo,  l_x, True, final_act)
-        self.net_ao = ffnn_network(h_a, n_ao,  l_a, True, final_act)
-
-        self.device = device
-
-    def forward(self, x, a):                                     # (bs, ni, n_xi), (bs, ni, ni, n_ai)
-        ni = x.shape[1]
-        hx = self.net_ni(x)                                      # (bs, ni, h_x)
-        ha = self.net_ei(a)                                      # (bs, ni, ni, h_a)
-
-        hx = hx.sum(dim=1)                                       # (bs, h_x)
-        ha = ha.sum(dim=(1,2))                                   # (bs, h_a)
-        hx = self.lin_xm(hx) + self.net_xm(ha)                   # (bs, h_x)
-        ha = self.lin_em(ha) + self.net_em(hx)                   # (bs, h_a)
-
-        hx = hx.unsqueeze(1).expand(-1, ni, -1)                  # (bs, ni, n_xi)
-        ha = ha.unsqueeze(1).unsqueeze(2).expand(-1, ni, ni, -1) # (bs, ni, ni, n_ai)
-
-        hx = self.net_no(hx)                                     # (bs, ni, n_xo)
-        ha = self.net_eo(ha)                                     # (bs, ni, ni, n_ao)
-        return hx, ha
-
-
-class GraphXCoder(nn.Module):
-    def __init__(self,
-                 n_xi: int,
-                 n_ai: int,
-                 n_yi: int,
-
-                 n_xo: int,
-                 n_ao: int,
-                 n_yo: int,
-
-                 h_x: int,
-                 h_a: int,
-                 h_y: int,
-
-                 l_x: int,
-                 l_a: int,
-                 l_y: int,
-                 l_m: int,
-
-                 n_b: int,
-
-                 device: Optional[str]='cuda'
-                 ):
-        super(GraphXCoder, self).__init__()
-        self.n_xi = n_xi
-        self.n_ai = n_ai
-
-        self.n_xo = n_xo
-        self.n_ao = n_ao
-
-        self.blocks = nn.ModuleList()
-        self.blocks.append(GraphXBlock(n_xi, n_ai, n_yi, h_x, h_a, h_y, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
-        for i in range(n_b):
-            self.blocks.append(GraphXBlock(h_x, h_a, h_y, h_x, h_a, h_y, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
-            # if batch_norm:
-            #     self.blocks.append(nn.LayerNorm(nh[i + 1].item()))
-        self.blocks.append(GraphXBlock(h_x, h_a, h_y, n_xo, n_ao, n_yo, h_x, h_a, h_y, l_x, l_a, l_y, l_m, device=device))
-
-        self.device = device
-
-    def forward(self, x, a):
-        h_node, h_edge = x, a
-        for block in self.blocks:
-            h_node, h_edge = block(h_node, h_edge)
-        h_edge = zero_diagonal(h_edge, self.device)
-        h_edge = (h_edge + h_edge.transpose(1, 2)) / 2
-        return h_node, h_edge
 
 
 class BackConv(nn.Module):
@@ -560,41 +606,42 @@ class GaussianSampler:
 
 class CategoricalSampler:
     def __init__(self,
-                 nd_ni: int,
-                 nk_ni: int,
-                 nk_ei: int,
+                 no: int,
+                 n_xo: int,
+                 n_ao: int,
+                 n_yo: int,
                  num_samples: Optional[int]=1,
                  trainable_weights: Optional[bool]=False,
                  device: Optional[str]='cuda'
                  ):
-        self.nd_ni = nd_ni
-        self.nk_ni = nk_ni
-        self.nk_ei = nk_ei
+        self.no = no
+        self.n_xo = n_xo
+        self.n_ao = n_ao
+        self.n_yo = n_yo
 
         self.num_samples = num_samples
         self.device = device
 
         self.w = torch.full((num_samples,), math.log(1 / num_samples), device=self.device, requires_grad=trainable_weights)
-        self.m = torch.tril(torch.ones(nd_ni, nd_ni, dtype=torch.bool), diagonal=-1)
+        self.m = torch.tril(torch.ones(no, no, dtype=torch.bool), diagonal=-1)
 
     def __call__(self, num_samples: Optional[any]=None):
         if num_samples == None:
             num_samples = self.num_samples
 
-        d_edge = self.nd_ni*(self.nd_ni - 1)//2
-        logit_node = torch.ones(self.nk_ni, device=self.device)
-        logit_edge = torch.ones(self.nk_ei, device=self.device)
-        z_node = Categorical(logits=logit_node).sample((self.num_samples, self.nd_ni)).float()
-        v_edge = Categorical(logits=logit_edge).sample((self.num_samples*d_edge, )).float()
+        do = self.no*(self.no - 1)//2
+        logit_x = torch.ones(self.n_xo, device=self.device)
+        logit_a = torch.ones(self.n_ao, device=self.device)
+        zx = Categorical(logits=logit_x).sample((num_samples, self.no)).float()
+        vv = Categorical(logits=logit_a).sample((num_samples*do,     )).float()
+        zy = torch.randn(num_samples, self.n_yo, device=self.device)
 
-        z_edge = torch.zeros(self.num_samples, self.nd_ni, self.nd_ni, device=self.device)
-        z_edge[:, self.m  ] = v_edge.view(-1, d_edge)
-        z_edge[:, self.m.T] = v_edge.view(-1, d_edge)
-        z_node, z_edge = cat2ohe(z_node, z_edge, self.nk_ni, self.nk_ei)
+        za = torch.zeros(num_samples, self.no, self.no, device=self.device)
+        za[:, self.m  ] = vv.view(-1, do)
+        za[:, self.m.T] = vv.view(-1, do)
+        zx, za = cat2ohe(zx, za, self.n_xo, self.n_ao)
 
-        z_edge = torch.movedim(z_edge, 1, -1) # get rid of this in cat2ohe and adapt the flow model accordingly
-
-        return z_node.float(), z_edge.float(), self.w
+        return zx.float(), za.float(), zy, self.w
 
 
 class GaussianEncoder(nn.Module):
@@ -623,8 +670,8 @@ class GaussianEncoder(nn.Module):
         za = ma + torch.exp(0.5*va)*torch.randn_like(va)                     # (bs, no, no, n_ao/2)
         zy = my + torch.exp(0.5*vy)*torch.randn_like(vy)                     # (bs, n_yo/2)
 
-        za = zero_diagonal(za, self.device)
-        za = (za + za.transpose(1, 2)) / 2
+        # za = set_diagonal(za, self.device)
+        # za = (za + za.transpose(1, 2)) / 2
 
         return kld_x + kld_a, zx, za, zy
 
@@ -643,8 +690,57 @@ class GaussianEncoder(nn.Module):
         za = Normal(ma, torch.exp(0.5*va)).sample((num_samples,))         # (bs, no, no, n_ao/2)
         zy = Normal(my, torch.exp(0.5*vy)).sample((num_samples,))         # (bs, n_yo/2)
 
-        za = zero_diagonal(za, self.device)
-        za = (za + za.transpose(1, 2)) / 2
+        # za = set_diagonal(za, self.device, 0.)
+        # za = (za + za.transpose(1, 2)) / 2
+
+        return zx, za, zy
+
+
+class CategoricalEncoder(nn.Module):
+    def __init__(self,
+                 network: nn.Module,
+                 device: Optional[str]='cuda'
+                 ):
+        super(CategoricalEncoder, self).__init__()
+        self.network = network
+        self.device = device
+
+    def forward(self,
+                x: torch.Tensor,                                             # (bs, ni, n_xi)
+                a: torch.Tensor,                                             # (bs, ni, ni, n_ai)
+                y: torch.Tensor                                              # (bs, n_yi)
+                ):
+        hx, ha, hy = self.network(x, a, y)                                   # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
+        my, vy = hy.chunk(2, dim=-1)                                         # (bs, n_yo/2), (bs, n_yo/2)
+
+        p_x = Categorical(probs=torch.full_like(hx, 1.0 / hx.shape[-1]))
+        p_a = Categorical(probs=torch.full_like(ha, 1.0 / ha.shape[-1]))
+        q_x = Categorical(logits=hx)
+        q_a = Categorical(logits=ha)
+
+        kld_x = torch.distributions.kl.kl_divergence(q_x, p_x).sum(dim=(1))        # (bs)
+        kld_a = torch.distributions.kl.kl_divergence(q_a, p_a).sum(dim=(1, 2))     # (bs)
+
+        zx = torch.nn.functional.gumbel_softmax(hx, tau=0.1, hard=True, eps=1e-10) # (bs, no, n_xo/2)
+        za = torch.nn.functional.gumbel_softmax(ha, tau=0.1, hard=True, eps=1e-10) # (bs, no, no, n_ao/2)             
+        zy = my + torch.exp(0.5*vy)*torch.randn_like(vy)                           # (bs, n_yo/2)
+
+        return kld_x + kld_a, zx, za, zy
+
+    def sample(self,
+               x: torch.Tensor,                                        # (bs, ni, n_xi)
+               a: torch.Tensor,                                        # (bs, ni, ni, n_ai)
+               y: torch.Tensor,                                        # (bs, n_yi)
+               num_samples: int
+               ):
+        hx, ha, hy = self.network(x, a, y)                             # (bs, no, n_xo), (bs, no, no, n_ao), (bs, n_yo)
+        my, vy = hy.chunk(2, dim=-1)                                   # (bs, n_yo/2), (bs, n_yo/2)
+
+        zx = Categorical(logits=hx).sample()                           # (bs, no)
+        za = Categorical(logits=ha).sample()                           # (bs, no, no)
+        zy = Normal(my, torch.exp(0.5*vy)).sample((num_samples,))      # (bs, n_yo/2)
+
+        zx, za = cat2ohe(zx, za, self.network.n_xo, self.network.n_ao) # (bs, no, n_xo), (bs, no, no, n_ao)
 
         return zx, za, zy
 
@@ -672,20 +768,13 @@ class CategoricalDecoder(nn.Module):
         xx = xx.float()
         xa = xa.float()
 
-        # log_prob = torch.zeros(len(xx), len(zx), device=self.device)               # (bs, num_chunks*chunk_size)
-        # # print(log_prob.size())
-        # for c in torch.arange(len(zx)).chunk(self.num_chunks):
-        #     logit_x, logit_a, logit_y = self.network(zx[c, :], za[c, :], zy[c, :]) # (chunk_size, no, n_xo), (chunk_size, no, no, n_ao)
-        #     log_prob_x = Categorical(logits=logit_x).log_prob(xx)                  # (bs, chunk_size, no)
-        #     log_prob_a = Categorical(logits=logit_a).log_prob(xa)                  # (bs, chunk_size, no, no)
-        #     log_prob[:, c] = log_prob_x.sum(dim=1) + log_prob_a.sum(dim=(1, 2))
         logit_x, logit_a, logit_y = self.network(zx, za, zy)
         log_prob_x = Categorical(logits=logit_x).log_prob(xx)
         log_prob_a = Categorical(logits=logit_a).log_prob(xa)
         log_prob = log_prob_x.sum(dim=1) + log_prob_a.sum(dim=(1, 2))
+
         return log_prob
-    
-    
+
     def cm_logpdf_marginal(self,
                 x_node: torch.Tensor,                                            # (bs, nd_no, nk_no)
                 x_edge: torch.Tensor,                                            # (bs, nd_no, nd_no, nk_eo)
@@ -720,7 +809,7 @@ class CategoricalDecoder(nn.Module):
         xa = Categorical(logits=logit_a).sample()                                  # (bs, no, no)
         xx, xa = cat2ohe(xx, xa, self.network.n_xo, self.network.n_ao)             # (bs, no, n_xo), (bs, no, no, n_ao)
         return xx.cpu(), xa.cpu()
-    
+
     def sample_conditional(self,
                x:  torch.Tensor,                                                    # (bs, nd_no, nk_no)
                a:  torch.Tensor,                                                    # (bs, nd_no, nd_no, nk_eo)

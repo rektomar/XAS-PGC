@@ -10,7 +10,7 @@ from torch.nn.modules.normalization import LayerNorm
 from torch.nn import functional as F
 from torch import Tensor
 from typing import Optional
-from models.utils import zero_diagonal
+from models.utils import set_diagonal
 
 class Xtoy(nn.Module):
     def __init__(self, nh_n, nh_y):
@@ -335,7 +335,7 @@ class GraphTransformer(nn.Module):
         a = self.mlp_out_a(a)
         y = self.mlp_out_y(y)
 
-        zero_diagonal(a, self.device)
+        a = set_diagonal(a, self.device, 0.)
         a = (a + a.transpose(1, 2)) / 2
 
         # r = x.size(-1)//x_to_out.size(-1)
