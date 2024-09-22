@@ -7,6 +7,8 @@ from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
 from models import molspn_zero
+from models import molspn_marg
+from models import molspn_none
 from models import molspn_back
 from models import molspn_vaes
 from models import moflow
@@ -14,6 +16,8 @@ from models import moflow
 MODELS = {
     **molspn_back.MODELS,
     **molspn_zero.MODELS,
+    **molspn_marg.MODELS,
+    **molspn_none.MODELS,
     **molspn_vaes.MODELS,
     **moflow.MODELS
 }
@@ -33,9 +37,11 @@ if __name__ == '__main__':
         # 'molspn_conv_sort',
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
-        # 'molspn_zero_sort',
+        'molspn_zero_sort',
+        # 'molspn_marg_sort',
+        # 'molspn_none_sort',
         # 'molspn_norm_sort',
-        'molspn_vaef_sort',
+        # 'molspn_vaef_sort',
         # 'molspn_vaex_sort',
         # 'molspn_vaet_sort',
         # 'moflow_sort',

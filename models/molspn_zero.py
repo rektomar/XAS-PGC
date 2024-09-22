@@ -108,6 +108,70 @@ class MolSPNZeroCore(nn.Module):
         return x, a
 
 
+# class MolSPNZeroSort(MolSPNZeroCore):
+#     def __init__(self,
+#                  nc,
+#                  nd_n,
+#                  nk_n,
+#                  nk_e,
+#                  nl_n,
+#                  nl_e,
+#                  nr_n,
+#                  nr_e,
+#                  ns_n,
+#                  ns_e,
+#                  ni_n,
+#                  ni_e,
+#                  regime,
+#                  dc_n=0.6,
+#                  dc_e=0.6,
+#                  device='cuda'
+#                  ):
+#         nd_e = nd_n**2
+
+#         graph_nodes = Graph.random_binary_trees(nd_n, nl_n, nr_n)
+#         graph_edges = Graph.random_binary_trees(nd_e, nl_e, nr_e)
+
+#         super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device, regime, dc_n, dc_e)
+
+#         self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=self.device), dim=1), requires_grad=True)
+
+#     def _forward(self, x, a):
+#         ll_nodes = self.network_nodes(x)
+        
+#         if   self.regime == 'cat':
+#             ll_edges = self.network_edges(a.view(-1, self.nd_edges))
+#         elif self.regime == 'deq':
+#             ll_edges = self.network_edges(a.view(-1, self.nd_edges, self.nk_edges))
+#         else:
+#             os.error('Unknown regime')
+
+#         return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
+
+#     def _sample(self, num_samples):
+#         if   self.regime == 'cat':
+#             x = torch.zeros(num_samples, self.nd_nodes)
+#             a = torch.zeros(num_samples, self.nd_edges)
+#         elif self.regime == 'deq':
+#             x = torch.zeros(num_samples, self.nd_nodes, self.nk_nodes)
+#             a = torch.zeros(num_samples, self.nd_edges, self.nk_edges)
+#         else:
+#             os.error('Unknown regime')
+
+#         cs = torch.distributions.Categorical(logits=self.weights).sample((num_samples, ))
+#         for i, c in enumerate(cs):
+#             x[i, :] = self.network_nodes.sample(1, class_idx=c).cpu()
+#             a[i, :] = self.network_edges.sample(1, class_idx=c).cpu()
+
+#         if   self.regime == 'cat':
+#             a = a.view(num_samples, self.nd_nodes, self.nd_nodes)
+#         elif self.regime == 'deq':
+#             a = a.view(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges)
+#         else:
+#             os.error('Unknown regime')
+
+#         return x, a
+
 class MolSPNZeroSort(MolSPNZeroCore):
     def __init__(self,
                  nc,

@@ -175,9 +175,8 @@ class EncoderFFNNTril(nn.Module):
         ha = ha.reshape(-1, self.do, self.n_ao)            # (bs, no, no, n_ao)
 
         sa = torch.zeros(x.shape[0], self.no, self.no, self.n_ao, device=self.device)
-        sa = set_diagonal(sa, self.device, 0.)
         sa[:, mo,   :] = ha
-        sa[:, mo.T, :] = ha
+        # sa[:, mo.T, :] = ha
 
         return hx, sa, hy
 
@@ -257,9 +256,8 @@ class DecoderFFNNTril(nn.Module):
         ha = ha.view(-1, self.do, self.n_ao)          # (bs, no*(no-1)/2*n_ao, nk_eo)
 
         sa = torch.zeros(zx.shape[0], self.no, self.no, self.n_ao, device=self.device)
-        sa = set_diagonal(sa, self.device, 0.)
         sa[:, mo,   :] = ha
-        sa[:, mo.T, :] = ha
+        # sa[:, mo.T, :] = ha
 
         return hx, sa, hy
 

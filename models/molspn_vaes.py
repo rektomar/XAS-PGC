@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from typing import Optional
-from models.utils import CategoricalEncoder, CategoricalDecoder, GaussianEncoder, EncoderFFNN, DecoderFFNN, GaussianSampler, CategoricalSampler
+from models.utils import CategoricalEncoder, CategoricalDecoder, GaussianEncoder, EncoderFFNNTril, DecoderFFNNTril, EncoderFFNN, DecoderFFNN, GaussianSampler, CategoricalSampler
 from models.graph_transformer import GraphTransformer
 from utils.graph_features_general import ExtraFeatures
 
@@ -44,10 +44,10 @@ class MolSPNVAEFSort(nn.Module):
         # self.decoder = CategoricalDecoder(decoder_network,   device=device)
         # self.sampler = GaussianSampler(nz, nz_x, nz_a, nz_y, device=device)
 
-        encoder_network = EncoderFFNN(
+        encoder_network = EncoderFFNNTril(
             nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, nz_x, nz_a, 2*nz_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         )
-        decoder_network = DecoderFFNN(
+        decoder_network = DecoderFFNNTril(
             nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         )
         self.encoder = CategoricalEncoder(encoder_network,      device=device)
