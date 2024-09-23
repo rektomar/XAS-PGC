@@ -30,43 +30,34 @@ def dict2str(d):
     return '_'.join([f'{key}={value}' for key, value in d.items() if key not in IGNORED_HYPERPARS])
 
 
-# def run_epoch(model, loader, optimizer=[], verbose=False):
-#     nll_sum = 0.
-#     for b in tqdm(loader, leave=False, disable=verbose):
-#         x = b['x'].to(model.device) # (256,9,5)
-#         a = b['a'].to(model.device) # (256,9,9,4)
-#         nll = -model.logpdf(x, a)
-#         nll_sum += nll
-#         if optimizer:
-#             optimizer.zero_grad()
-#             nll.backward()
-#             optimizer.step()
-
-#     return nll_sum.item() / len(loader)
-
 def run_epoch(model, loader, optimizer=[], verbose=False):
     nll_sum = 0.
     for b in tqdm(loader, leave=False, disable=verbose):
         x = b['x'].to(model.device) # (256,9,5)
         a = b['a'].to(model.device) # (256,9,9,4)
-        def closure():
+        nll = -model.logpdf(x, a)
+        nll_sum += nll
+        if optimizer:
             optimizer.zero_grad()
-            nll = -model.logpdf(x, a)
             nll.backward()
-            return nll
-        optimizer.step(closure)
-        nll_sum += closure()
+            optimizer.step()
 
     return nll_sum.item() / len(loader)
 
-# for input, target in dataset:
-#     def closure():
-#         optimizer.zero_grad()
-#         output = model(input)
-#         loss = loss_fn(output, target)
-#         loss.backward()
-#         return loss
-#     optimizer.step(closure)
+# def run_epoch(model, loader, optimizer=[], verbose=False):
+#     nll_sum = 0.
+#     for b in tqdm(loader, leave=False, disable=verbose):
+#         x = b['x'].to(model.device) # (256,9,5)
+#         a = b['a'].to(model.device) # (256,9,9,4)
+#         def closure():
+#             optimizer.zero_grad()
+#             nll = -model.logpdf(x, a)
+#             nll.backward()
+#             return nll
+#         optimizer.step(closure)
+#         nll_sum += closure()
+
+#     return nll_sum.item() / len(loader)
 
 METRIC_TYPES = ['valid', 'unique', 'novel', 'score']
 
@@ -81,7 +72,8 @@ def train(
         verbose=False,
         metric_type='score'
     ):
-    optimizer = optim.LBFGS(model.parameters(), **hyperpars['optimizer_hyperpars'], history_size=100, max_iter=5)
+    # optimizer = optim.LBFGS(model.parameters(), **hyperpars['optimizer_hyperpars'], history_size=100, max_iter=5)
+    optimizer = optim.Adam(model.parameters(), **hyperpars['optimizer_hyperpars'])
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     lookahead_counter = num_nonimproving_epochs

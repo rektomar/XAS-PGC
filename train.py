@@ -9,6 +9,7 @@ from utils.evaluate import count_parameters
 from models import molspn_zero
 from models import molspn_marg
 from models import molspn_none
+from models import molspn_norm
 from models import molspn_back
 from models import molspn_vaes
 from models import moflow
@@ -17,6 +18,7 @@ MODELS = {
     **molspn_back.MODELS,
     **molspn_zero.MODELS,
     **molspn_marg.MODELS,
+    **molspn_norm.MODELS,
     **molspn_none.MODELS,
     **molspn_vaes.MODELS,
     **moflow.MODELS
