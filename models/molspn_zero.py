@@ -39,6 +39,13 @@ class MolSPNZeroCore(nn.Module):
             ef_args_e = {'K': nk_e}
             num_dim_n = 1
             num_dim_e = 1
+        elif regime == 'bin':
+            ef_dist_n = ExponentialFamilyArray.BinomialArray
+            ef_dist_e = ExponentialFamilyArray.BinomialArray
+            ef_args_n = {'N': nk_n-1}
+            ef_args_e = {'N': nk_e-1}
+            num_dim_n = 1
+            num_dim_e = 1
         elif regime == 'deq':
             ef_dist_n = ExponentialFamilyArray.NormalArray
             ef_dist_e = ExponentialFamilyArray.NormalArray
