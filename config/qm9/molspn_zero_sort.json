@@ -2,18 +2,18 @@
     "dataset": "qm9",
     "model": "molspn_zero_sort",
     "model_hyperpars": {
-        "nc": 100,
+        "nc": 10,
         "nd_n": 9,
         "nk_n": 5,
         "nk_e": 4,
-        "nl_n": 2,
-        "nl_e": 2,
+        "nl_n": 3,
+        "nl_e": 3,
         "nr_n": 100,
         "nr_e": 100,
-        "ns_n": 20,
-        "ns_e": 20,
-        "ni_n": 30,
-        "ni_e": 30,
+        "ns_n": 10,
+        "ns_e": 10,
+        "ni_n": 10,
+        "ni_e": 10,
         "dc_n": 0.6,
         "dc_e": 0.6,
         "regime": "cat",
@@ -21,7 +21,11 @@
     },
     "optimizer": "adam",
     "optimizer_hyperpars": {
-        "lr": 0.3
+        "lr": 0.05,
+        "betas": [
+            0.91,
+            0.8
+        ]
     },
     "num_epochs": 1000,
     "batch_size": 256,

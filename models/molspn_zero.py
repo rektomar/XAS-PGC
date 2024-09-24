@@ -92,7 +92,7 @@ class MolSPNZeroCore(nn.Module):
     def forward(self, x, a):
         x = x.to(self.device)
         a = a.to(self.device)
-        if   self.regime == 'cat':
+        if   self.regime == 'cat' or self.regime == 'bin':
             _x, _a = ohe2cat(x, a)
         elif self.regime == 'deq':
             _x = x + self.dc_n*torch.rand(x.size(), device=self.device)
@@ -110,7 +110,7 @@ class MolSPNZeroCore(nn.Module):
 
     def sample(self, num_samples):
         x, a = self._sample(num_samples)
-        if self.regime == 'cat':
+        if self.regime == 'cat' or self.regime == 'bin':
             x, a = cat2ohe(x, a, self.nk_nodes, self.nk_edges)
         return x, a
 
@@ -147,7 +147,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
     def _forward(self, x, a):
         ll_nodes = self.network_nodes(x)
         
-        if   self.regime == 'cat':
+        if   self.regime == 'cat' or self.regime == 'bin':
             ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges))
         elif self.regime == 'deq':
             ll_edges = self.network_edges(a[:, self.m, :].view(-1, self.nd_edges, self.nk_edges))
@@ -157,7 +157,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
         return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
 
     def _sample(self, num_samples):
-        if   self.regime == 'cat':
+        if   self.regime == 'cat' or self.regime == 'bin':
             x = torch.zeros(num_samples, self.nd_nodes)
             l = torch.zeros(num_samples, self.nd_edges)
         elif self.regime == 'deq':
@@ -171,7 +171,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
             x[i, :] = self.network_nodes.sample(1, class_idx=c).cpu()
             l[i, :] = self.network_edges.sample(1, class_idx=c).cpu()
 
-        if   self.regime == 'cat':
+        if   self.regime == 'cat' or self.regime == 'bin':
             a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
             a[:, self.m] = l
         elif self.regime == 'deq':

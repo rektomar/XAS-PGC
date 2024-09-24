@@ -5,7 +5,6 @@ import itertools
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from torch.distributions import Poisson
 from models.utils import ohe2cat, cat2ohe
 from tqdm import tqdm
 
@@ -83,7 +82,6 @@ class MolSPNMargCore(nn.Module):
         self.network_nodes.initialize()
         self.network_edges.initialize()
 
-        # self.rate = nn.Parameter(torch.randn(1, device=device), requires_grad=True)
         self.logits = nn.Parameter(torch.ones(nd_n, device=device), requires_grad=True)
         self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=device), dim=1), requires_grad=True)
         self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
@@ -107,7 +105,6 @@ class MolSPNMargCore(nn.Module):
 
         num_empty, _ = c.sort()
         n = self.nd_nodes - num_empty - 1
-        # d = Poisson(self.rate.exp())
         d = torch.distributions.Categorical(logits=self.logits)
 
         return d.log_prob(n.to(self.device)) + torch.cat(l)
@@ -121,9 +118,8 @@ class MolSPNMargCore(nn.Module):
         l = torch.zeros(num_samples, self.nd_edges)
         a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
 
-        # d = Poisson(self.rate.exp())
         d = torch.distributions.Categorical(logits=self.logits)
-        n = self.nd_nodes - d.sample((num_samples, )).clamp(0, self.nd_nodes).to(torch.int)
+        n = self.nd_nodes - d.sample((num_samples, )).to(torch.int) - 1
         for num_empty, num_samples in zip(*torch.unique(n, return_counts=True)):
             num_full = self.nd_nodes-num_empty.item()
             marginalize_nodes(self.network_nodes, self.nd_nodes, num_empty, num_full)
@@ -132,6 +128,7 @@ class MolSPNMargCore(nn.Module):
             cs = torch.distributions.Categorical(logits=self.weights).sample((num_samples, ))
             for i, c in enumerate(cs):
                 x[i+o, :] = self.network_nodes.sample(1, class_idx=c).cpu()
+                x[i+o, num_full:num_full+num_empty] = self.nk_nodes - 1
                 l[i+o, :] = self.network_edges.sample(1, class_idx=c).cpu()
             o += num_samples
 

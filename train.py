@@ -33,14 +33,14 @@ if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
     RDLogger.DisableLog('rdApp.*')
 
-    dataset = 'zinc250k'
+    dataset = 'qm9'
     names = [
         # 'molspn_ffnn_sort',
         # 'molspn_conv_sort',
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
-        'molspn_zero_sort',
-        # 'molspn_marg_sort',
+        # 'molspn_zero_sort',
+        'molspn_marg_sort',
         # 'molspn_none_sort',
         # 'molspn_norm_sort',
         # 'molspn_vaef_sort',
@@ -67,7 +67,7 @@ if __name__ == '__main__':
         else:
             canonical = False
 
-        loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.99, 0.01], canonical=canonical)
+        loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.8, 0.2], canonical=canonical)
         smiles_trn = [x['s'] for x in loader_trn.dataset]
 
         path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR)

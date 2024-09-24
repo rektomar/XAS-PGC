@@ -34,7 +34,7 @@ class MolSPNNormCore(nn.Module):
             num_sums=ns_n,
             num_classes=nc,
             exponential_family=ExponentialFamilyArray.NormalArray,
-            exponential_family_args={'min_var': 1e-1, 'max_var': 5e-0},
+            exponential_family_args={'min_var': 1e-2, 'max_var': 1e-0},
             use_em=False)
         args_edges = EinsumNetwork.Args(
             num_var=nd_e,
@@ -43,7 +43,7 @@ class MolSPNNormCore(nn.Module):
             num_sums=ns_e,
             num_classes=nc,
             exponential_family=ExponentialFamilyArray.NormalArray,
-            exponential_family_args={'min_var': 1e-1, 'max_var': 5e-0},
+            exponential_family_args={'min_var': 1e-2, 'max_var': 1e-0},
             use_em=False)
 
         self.network_nodes = EinsumNetwork.EinsumNetwork(graph_nodes, args_nodes)
