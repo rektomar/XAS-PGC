@@ -175,8 +175,8 @@ class EncoderFFNNTril(nn.Module):
         ha = ha.reshape(-1, self.do, self.n_ao)            # (bs, no, no, n_ao)
 
         sa = torch.zeros(x.shape[0], self.no, self.no, self.n_ao, device=self.device)
-        sa[:, mo,   :] = ha
-        # sa[:, mo.T, :] = ha
+        sa[:, mo, :] = ha
+        sa.transpose(1, 2)[:, mo, :] = ha
 
         return hx, sa, hy
 
@@ -257,7 +257,7 @@ class DecoderFFNNTril(nn.Module):
 
         sa = torch.zeros(zx.shape[0], self.no, self.no, self.n_ao, device=self.device)
         sa[:, mo,   :] = ha
-        # sa[:, mo.T, :] = ha
+        sa.transpose(1, 2)[:, mo, :] = ha
 
         return hx, sa, hy
 
@@ -596,8 +596,8 @@ class GaussianSampler:
 
         d_ao = self.no*(self.no - 1)//2
         va = self.sd_a*torch.randn(num_samples*d_ao*self.n_ao, device=self.device)
-        za[:, self.m,   :] = va.view(-1, d_ao, self.n_ao)
-        za[:, self.m.T, :] = va.view(-1, d_ao, self.n_ao)
+        za[:, self.m, :] = va.view(-1, d_ao, self.n_ao)
+        za.transpose(1, 2)[:, self.m, :] = va.view(-1, d_ao, self.n_ao)
 
         return zx, za, zy, self.w
 
@@ -635,8 +635,8 @@ class CategoricalSampler:
         zy = torch.randn(num_samples, self.n_yo, device=self.device)
 
         za = torch.zeros(num_samples, self.no, self.no, device=self.device)
-        za[:, self.m  ] = vv.view(-1, do)
-        za[:, self.m.T] = vv.view(-1, do)
+        za[:, self.m] = vv.view(-1, do)
+        za.transpose(1, 2)[:, self.m] = vv.view(-1, do)
         zx, za = cat2ohe(zx, za, self.n_xo, self.n_ao)
 
         return zx.float(), za.float(), zy, self.w

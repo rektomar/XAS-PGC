@@ -34,25 +34,27 @@ class MolSPNVAEFSort(nn.Module):
         nf_a = self.features_g.nf_a
         nf_y = self.features_g.nf_y
 
+        encoder_network = EncoderFFNN(
+            nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, 2*nz_x, 2*nz_a, 2*nz_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
+        )
+        decoder_network = DecoderFFNN(
+            nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
+        )
+        self.encoder = GaussianEncoder(   encoder_network,   device=device)
+        self.decoder = CategoricalDecoder(decoder_network,   device=device)
+        self.sampler = GaussianSampler(nz, nz_x, nz_a, nz_y, device=device)
+
         # encoder_network = EncoderFFNN(
-        #     nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, 2*nz_x, 2*nz_a, 2*nz_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
+        #     nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, nz_x, nz_a, 2*nz_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         # )
         # decoder_network = DecoderFFNN(
         #     nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
         # )
-        # self.encoder = GaussianEncoder(   encoder_network,   device=device)
-        # self.decoder = CategoricalDecoder(decoder_network,   device=device)
-        # self.sampler = GaussianSampler(nz, nz_x, nz_a, nz_y, device=device)
+        # self.encoder = CategoricalEncoder(encoder_network,      device=device)
+        # self.decoder = CategoricalDecoder(decoder_network,      device=device)
+        # self.sampler = CategoricalSampler(nz, nz_x, nz_a, nz_y, device=device)
 
-        encoder_network = EncoderFFNNTril(
-            nx, nz, nx_x+nf_x, nx_a+nf_a, nf_y, nz_x, nz_a, 2*nz_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
-        )
-        decoder_network = DecoderFFNNTril(
-            nz, nx, nz_x, nz_a, nz_y, nx_x, nx_a, nf_y, h_x, h_a, h_y, l_x, l_a, l_y, l_b, device=device
-        )
-        self.encoder = CategoricalEncoder(encoder_network,      device=device)
-        self.decoder = CategoricalDecoder(decoder_network,      device=device)
-        self.sampler = CategoricalSampler(nz, nz_x, nz_a, nz_y, device=device)
+        self.logits = nn.Parameter(torch.ones(nx, device=device), requires_grad=True)
 
         self.device = device
         self.to(device)
@@ -68,7 +70,10 @@ class MolSPNVAEFSort(nn.Module):
         kld_loss, zx, za, zy = self.encoder(xe, ae, yf)
         rec_loss = self.decoder(xx, aa, [], zx, za, zy)
 
-        return rec_loss - kld_loss
+        n = xx.shape[1] - torch.count_nonzero(xx[..., -1] == 1, dim=1) - 1
+        d = torch.distributions.Categorical(logits=self.logits)
+
+        return d.log_prob(n) + rec_loss - kld_loss
 
     def logpdf(self, x, a):
         return self(x, a).mean()
@@ -76,6 +81,14 @@ class MolSPNVAEFSort(nn.Module):
     def sample(self, num_samples):
         zx, za, zy, _ = self.sampler(num_samples)
         xx, xa = self.decoder.sample(zx, za, zy)
+
+        d = torch.distributions.Categorical(logits=self.logits)
+        n = d.sample((num_samples, )).to(torch.int).unsqueeze(1)
+        r = torch.arange(xx.shape[1], device=self.device).unsqueeze(0)
+        m = r < n
+
+        xx[~m,  :] = torch.cat((torch.zeros(xx.shape[-1]-1), torch.ones(1))).type_as(xx)
+
         return xx, xa
 
     def sample_conditional(self, x, a, mx, ma, num_samples, n_mc_samples=16384):
