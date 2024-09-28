@@ -10,7 +10,6 @@ from torch.nn.modules.normalization import LayerNorm
 from torch.nn import functional as F
 from torch import Tensor
 from typing import Optional
-from models.utils import set_diagonal
 
 class Xtoy(nn.Module):
     def __init__(self, nh_n, nh_y):
@@ -50,6 +49,12 @@ class Atoy(nn.Module):
         out = self.lin(z)
         return out
 
+def masked_softmax(x, mask, **kwargs):
+    if mask.sum() == 0:
+        return x
+    x_masked = x.clone()
+    x_masked[mask == 0] = -float("inf")
+    return torch.softmax(x_masked, **kwargs)
 
 class NodeEdgeAttBlock(nn.Module):
     def __init__(self,
@@ -90,15 +95,19 @@ class NodeEdgeAttBlock(nn.Module):
         self.a_out = Linear(nh_n, nh_e)
         self.y_out = nn.Sequential(nn.Linear(nh_y, nh_y), nn.ReLU(), nn.Linear(nh_y, nh_y))
 
-    def forward(self, x, a, y):
+    def forward(self, x, a, y, m):
         """
         x: (bs, n, nh_n)    node features
         a: (bs, n, n, nh_e) edge features
         y: (bs, nh_y)       global features
+        m: (bs, n)          mask
         Output: xhat, ahat, yhat with the same shape.
         """
-        Q = self.q(x)                                   # (bs, n, nh_n)
-        K = self.k(x)                                   # (bs, n, nh_n)
+        m_x = m.unsqueeze(-1)                           # (bs, n, 1)
+        m_a1 = m_x.unsqueeze(2)                         # (bs, n, 1, 1)
+        m_a2 = m_x.unsqueeze(1)                         # (bs, 1, n, 1)
+        Q = self.q(x) * m_x                             # (bs, n, nh_n)
+        K = self.k(x) * m_x                             # (bs, n, nh_n)
 
         # Reshape to (bs, n, n_head, nh_f) with nh_n = n_head * nh_f
         Q = Q.reshape((Q.size(0), Q.size(1), self.n_head, self.nh_f))
@@ -112,8 +121,8 @@ class NodeEdgeAttBlock(nn.Module):
         Y = Y / math.sqrt(Y.size(-1))
 
         # FiLM: Incorporate edge features to the self attention scores
-        a1 = self.a2x_add(a)                            # (bs, n, n, nh_n)
-        a2 = self.a2x_mul(a)                            # (bs, n, n, nh_n)
+        a1 = self.a2x_mul(a) * m_a1 * m_a2              # (bs, n, n, nh_n)
+        a2 = self.a2x_add(a) * m_a1 * m_a2              # (bs, n, n, nh_n)
         a1 = a1.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.nh_f))
         a2 = a2.reshape((a.size(0), a.size(1), a.size(2), self.n_head, self.nh_f))
         Y = Y * (a1 + 1) + a2                           # (bs, n, n, n_head, nh_f)
@@ -128,9 +137,10 @@ class NodeEdgeAttBlock(nn.Module):
         ahat = self.a_out(ahat)                         # (bs, n, n, nh_e)
 
         # Compute attentions.
-        attn = torch.softmax(Y, dim=2)                  # (bs, n, n, n_head) ? (bs, n, n, n_head, nh_f)
+        m_softmax = m_a2.expand(-1, x.shape[1], -1, self.n_head) # (bs, 1, n, 1)
+        attn = masked_softmax(Y, m_softmax, dim=2)               # (bs, n, n, n_head) ? (bs, n, n, n_head, nh_f)
 
-        V = self.v(x)                                   # (bs, n, nh_n)
+        V = self.v(x) * m_x                             # (bs, n, nh_n)
         V = V.reshape((V.size(0), V.size(1), self.n_head, self.nh_f))
         V = V.unsqueeze(1)                              # (bs, 1, n, n_head, nh_f)
 
@@ -147,7 +157,7 @@ class NodeEdgeAttBlock(nn.Module):
         xhat = yx1 + (yx2 + 1) * weighted_V
 
         # Output x
-        xhat = self.x_out(xhat)
+        xhat = self.x_out(xhat) * m_x
 
         # Process y based on x and a
         yhat = self.y_y(y) + self.a_y(a) + self.x_y(x)
@@ -208,14 +218,15 @@ class TransformerLayer(nn.Module):
 
         self.activation = F.relu
 
-    def forward(self, x: Tensor, a: Tensor, y):
+    def forward(self, x: Tensor, a: Tensor, y, m: Tensor):
         """
         x: (bs, n, nh_n)
         a: (bs, n, n, nh_e)
         y: (bs, nh_y)
+        m: (bs, n)
         Output: xhat, ahat, yhat with the same dims.
         """
-        xhat, ahat, yhat = self.self_attn(x, a, y)
+        xhat, ahat, yhat = self.self_attn(x, a, y, m)
 
         x = self.norm_x1(x + self.dropout_x1(xhat))
         a = self.norm_a1(a + self.dropout_a1(ahat))
@@ -312,37 +323,41 @@ class GraphTransformer(nn.Module):
 
         self.device = device
 
-    def forward(self, x, a, y):
-        # bs, n = x.shape[0], x.shape[1]
+    def forward(self, x, a, y, m):
+        bs, n = x.shape[0], x.shape[1]
 
-        # diag_mask = torch.eye(n)
-        # diag_mask = ~diag_mask.type_as(a).bool()
-        # diag_mask = diag_mask.unsqueeze(0).unsqueeze(-1).expand(bs, -1, -1, -1)
+        m_diag = torch.eye(n)
+        m_diag = ~m_diag.type_as(a).bool()
+        m_diag = m_diag.unsqueeze(0).unsqueeze(-1).expand(bs, -1, -1, -1)
 
-        # x_to_out = x[..., :self.n_xo]
-        # a_to_out = a[..., :self.n_ao]
-        # y_to_out = y[..., :self.n_yo]
+        x_to_out = x[..., :self.n_xo]
+        a_to_out = a[..., :self.n_ao]
+        y_to_out = y[..., :self.n_yo]
 
         x = self.mlp_in_x(x)
         a = self.mlp_in_a(a)
         y = self.mlp_in_y(y)
         a = (a + a.transpose(1, 2)) / 2
 
+        m_x = m.unsqueeze(-1)          # (bs, n, 1)
+        m_a1 = m_x.unsqueeze(2)        # (bs, n, 1, 1)
+        m_a2 = m_x.unsqueeze(1)        # (bs, 1, n, 1)
+
+        x = x * m_x
+        a = a * m_a1 * m_a2
+        assert torch.allclose(a, torch.transpose(a, 1, 2))
+
         for layer in self.tf_layers:
-            x, a, y = layer(x, a, y)
+            x, a, y = layer(x, a, y, m)
 
         x = self.mlp_out_x(x)
         a = self.mlp_out_a(a)
         y = self.mlp_out_y(y)
 
-        a = set_diagonal(a, self.device, 0.)
+        x = (x + x_to_out)
+        a = (a + a_to_out) * m_diag
+        y = (y + y_to_out)
         a = (a + a.transpose(1, 2)) / 2
-
-        # r = x.size(-1)//x_to_out.size(-1)
-        # x = (x + x_to_out.repeat(1, 1, r))
-        # a = (a + a_to_out.repeat(1, 1, 1, r)) * diag_mask
-        # y = (y + y_to_out.repeat(1, r))
-        # a = (a + a.transpose(1, 2)) / 2
 
         return x, a, y
 

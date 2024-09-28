@@ -14,3 +14,6 @@ train.pdf
 train.tex
 
 utils/graph_features_molecular.py
+
+models/molspn_perm.py
+config/qm9/molspn_perm_sort.json

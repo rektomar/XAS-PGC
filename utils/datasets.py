@@ -126,24 +126,23 @@ if __name__ == '__main__':
 
     download = True
     dataset = 'qm9'
+    canonical = False
 
     if download:
         if dataset == 'qm9':
-            download_qm9(canonical=True)
-            # download_qm9(canonical=False)
+            download_qm9(canonical=canonical)
         elif dataset == 'zinc250k':
-            download_zinc250k(canonical=True)
-            # download_zinc250k(canonical=False)
+            download_zinc250k(canonical=canonical)
         else:
             os.error('Unsupported dataset.')
 
-    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.1, 0.9], canonical=True)
+    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.1, 0.9], canonical=canonical)
 
     x = [e['x'] for e in loader_trn.dataset]
     a = [e['a'] for e in loader_trn.dataset]
     s = [e['s'] for e in loader_trn.dataset]
 
-    print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
+    print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=canonical))
 
     # loader_trn, loader_val = load_dataset(dataset, 100, split=[0.8, 0.2], canonical=False)
 
