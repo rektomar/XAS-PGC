@@ -35,7 +35,7 @@ EVALUATION_DIR = 'results/training/model_evaluation/'
 
 if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
-    # torch.set_printoptions(threshold=10_000, linewidth=200)
+    torch.set_printoptions(threshold=10_000, linewidth=200)
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
@@ -51,9 +51,9 @@ if __name__ == '__main__':
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
 
-        # 'molspn_zero_sort',
+        'molspn_zero_sort',
         # 'molspn_perm_sort',
-        'molspn_marg_sort',
+        # 'molspn_marg_sort',
         # 'molspn_none_sort',
         # 'molspn_norm_sort',
         # 'molspn_vaef_sort',

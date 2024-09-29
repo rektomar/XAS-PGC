@@ -8,30 +8,6 @@ from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
 from tqdm import tqdm
 
 
-def marginalize_nodes(network, nd_nodes, num_empty, num_full):
-    with torch.no_grad():
-        if num_empty > 0:
-            mx = torch.zeros(nd_nodes, dtype=torch.bool)
-            mx[num_full:] = True
-            marginalization_idx = torch.arange(nd_nodes)[mx.view(-1)]
-
-            network.set_marginalization_idx(marginalization_idx)
-        else:
-            network.set_marginalization_idx(None)
-
-def marginalize_edges(network, nd_nodes, num_empty, num_full):
-    with torch.no_grad():
-        if num_empty > 0:
-            ma = torch.zeros(nd_nodes, nd_nodes, dtype=torch.bool)
-            ma[num_full:, :] = True
-            ma[:, num_full:] = True
-            marginalization_idx = torch.arange(nd_nodes * (nd_nodes - 1) // 2)[ma[torch.tril(torch.ones(nd_nodes, nd_nodes), diagonal=-1) == 1]]
-
-            network.set_marginalization_idx(marginalization_idx)
-        else:
-            network.set_marginalization_idx(None)
-
-
 class MolSPNMargCore(nn.Module):
     def __init__(self,
                  nc,
@@ -81,8 +57,8 @@ class MolSPNMargCore(nn.Module):
         self.network_nodes.initialize()
         self.network_edges.initialize()
 
-        self.logits = nn.Parameter(torch.ones(nd_n, device=device), requires_grad=True)
-        self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=device), dim=1), requires_grad=True)
+        self.logits_n = nn.Parameter(torch.randn( nd_n, device=device), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.randn(1, nc, device=device), requires_grad=True)
         self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
 
         self.device = device
@@ -93,42 +69,43 @@ class MolSPNMargCore(nn.Module):
         pass
 
     def forward(self, x, a):
-        l = []
-        c = torch.count_nonzero(x == self.nk_nodes-1, dim=1)
-        for num_empty in torch.unique(c):
-            num_full = self.nd_nodes-num_empty.item()
-            marginalize_nodes(self.network_nodes, self.nd_nodes, num_empty.item(), num_full)
-            marginalize_edges(self.network_edges, self.nd_nodes, num_empty.item(), num_full)
-            l.append(self._forward(x[c == num_empty], a[c == num_empty], num_full))
+        m_nodes = (x != self.nk_nodes-1)
+        m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
 
-        num_empty, _ = c.sort()
-        n = self.nd_nodes - num_empty - 1
-        d = torch.distributions.Categorical(logits=self.logits)
+        n = m_nodes.sum(dim=1) - 1
+        d = torch.distributions.Categorical(logits=self.logits_n)
 
-        return d.log_prob(n.to(self.device)) + torch.cat(l)
+        self.network_nodes.set_marginalization_mask(m_nodes)
+        self.network_edges.set_marginalization_mask(m_edges)
+
+        return d.log_prob(n) + self._forward(x, a)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        o = 0
-        x = torch.zeros(num_samples, self.nd_nodes)
-        l = torch.zeros(num_samples, self.nd_edges)
-        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
+        # x = torch.zeros(num_samples, self.nd_nodes,                device=self.device)
+        # l = torch.zeros(num_samples, self.nd_edges,                device=self.device)
+        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
 
-        d = torch.distributions.Categorical(logits=self.logits)
-        n = self.nd_nodes - d.sample((num_samples, )).to(torch.int) - 1
-        for num_empty, num_samples in zip(*torch.unique(n, return_counts=True)):
-            num_full = self.nd_nodes-num_empty.item()
-            marginalize_nodes(self.network_nodes, self.nd_nodes, num_empty, num_full)
-            marginalize_edges(self.network_edges, self.nd_nodes, num_empty, num_full)
+        # x += self.nk_nodes - 1
+        # l += self.nk_edges - 1
+        # a += self.nk_edges - 1
 
-            cs = torch.distributions.Categorical(logits=self.weights).sample((num_samples, ))
-            for i, c in enumerate(cs):
-                x[i+o, :] = self.network_nodes.sample(1, class_idx=c).cpu()
-                x[i+o, num_full:num_full+num_empty] = self.nk_nodes - 1
-                l[i+o, :] = self.network_edges.sample(1, class_idx=c).cpu()
-            o += num_samples
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
+        dist_w = torch.distributions.Categorical(logits=self.logits_w)
+        samp_n = dist_n.sample((num_samples, ))
+        samp_w = dist_w.sample((num_samples, )).squeeze()
+
+        m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
+        m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
+
+        self.network_nodes.set_marginalization_mask(m_nodes)
+        self.network_edges.set_marginalization_mask(m_edges)
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w)
+        x[~m_nodes] = self.nk_nodes - 1
+        l[~m_edges] = self.nk_edges - 1
 
         a[:, self.m] = l
 
@@ -152,10 +129,10 @@ class MolSPNMargSort(MolSPNMargCore):
                  device='cuda'):
         super().__init__(nc, nd_n, nk_n, nk_e, nl_n, nl_e, nr_n, nr_e, ns_n, ns_e, ni_n, ni_e, device)
 
-    def _forward(self, x, a, num_full):
+    def _forward(self, x, a):
         ll_nodes = self.network_nodes(x)
         ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges))
-        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
+        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
 
 MODELS = {
     'molspn_marg_sort': MolSPNMargSort,

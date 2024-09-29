@@ -134,7 +134,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
 
         super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device, regime, dc_n, dc_e)
 
-        self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=self.device), dim=1), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.ones(1, nc, device=self.device), requires_grad=True)
         self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
 
     def _forward(self, x, a):
@@ -147,7 +147,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
         else:
             os.error('Unknown regime')
 
-        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
+        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
 
     def sample(self, num_samples):
         if   self.regime == 'cat' or self.regime == 'bin':
@@ -159,10 +159,11 @@ class MolSPNZeroSort(MolSPNZeroCore):
         else:
             os.error('Unknown regime')
 
-        cs = torch.distributions.Categorical(logits=self.weights).sample((num_samples, ))
-        for i, c in enumerate(cs):
-            x[i, :] = self.network_nodes.sample(1, class_idx=c).cpu()
-            l[i, :] = self.network_edges.sample(1, class_idx=c).cpu()
+        dist_w = torch.distributions.Categorical(logits=self.logits_w)
+        samp_w = dist_w.sample((num_samples, )).squeeze()
+
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w).cpu()
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w).cpu()
 
         if   self.regime == 'cat' or self.regime == 'bin':
             a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)

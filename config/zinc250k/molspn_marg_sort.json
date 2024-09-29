@@ -2,18 +2,18 @@
     "dataset": "zinc250k",
     "model": "molspn_marg_sort",
     "model_hyperpars": {
-        "nc": 10,
+        "nc": 100,
         "nd_n": 38,
         "nk_n": 10,
         "nk_e": 4,
-        "nl_n": 5,
-        "nl_e": 9,
+        "nl_n": 4,
+        "nl_e": 5,
         "nr_n": 100,
         "nr_e": 100,
         "ns_n": 5,
         "ns_e": 5,
-        "ni_n": 10,
-        "ni_e": 10,
+        "ni_n": 20,
+        "ni_e": 20,
         "device": "cuda"
     },
     "optimizer": "adam",
@@ -25,6 +25,6 @@
         ]
     },
     "num_epochs": 1000,
-    "batch_size": 256,
+    "batch_size": 32,
     "seed": 0
 }

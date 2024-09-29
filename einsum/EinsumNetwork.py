@@ -133,13 +133,13 @@ class EinsumNetwork(torch.nn.Module):
         for layer in self.einet_layers:
             layer.initialize(init_dict.get(layer, 'default'))
 
-    def set_marginalization_idx(self, idx):
-        """Set indices of marginalized variables."""
-        self.einet_layers[0].set_marginalization_idx(idx)
+    def set_marginalization_mask(self, mask):
+        """Set the binary mask of marginalized variables."""
+        self.einet_layers[0].set_marginalization_mask(mask)
 
-    def get_marginalization_idx(self):
-        """Get indices of marginalized variables."""
-        return self.einet_layers[0].get_marginalization_idx()
+    def get_marginalization_mask(self):
+        """Get the binary mask of marginalized variables."""
+        return self.einet_layers[0].get_marginalization_mask()
 
     def forward(self, x):
         """Evaluate the EinsumNetwork feed forward."""
@@ -150,7 +150,7 @@ class EinsumNetwork(torch.nn.Module):
             einsum_layer()
         return self.einet_layers[-1].prob[:, :, 0]
 
-    def backtrack(self, num_samples=1, class_idx=0, x=None, mode='sampling', **kwargs):
+    def backtrack(self, num_samples=1, class_idxs=None, x=None, mode='sampling', **kwargs):
         """
         Perform backtracking; for sampling or MPE approximation.
         """
@@ -164,9 +164,11 @@ class EinsumNetwork(torch.nn.Module):
         if x is not None:
             self.forward(x)
             num_samples = x.shape[0]
+        if class_idxs is None:
+            class_idxs = [0] * num_samples
 
         sample_idx[root] = list(range(num_samples))
-        dist_idx[root] = [class_idx] * num_samples
+        dist_idx[root] = class_idxs
         reg_idx[root] = [0] * num_samples
 
         for layer in reversed(self.einet_layers):
@@ -227,17 +229,17 @@ class EinsumNetwork(torch.nn.Module):
                     samples = torch.squeeze(samples, 2)
 
                 if x is not None:
-                    marg_idx = layer.get_marginalization_idx()
-                    keep_idx = [i for i in range(self.args.num_var) if i not in marg_idx]
-                    samples[:, keep_idx] = x[:, keep_idx]
+                    marg_mask = layer.get_marginalization_mask()
+                    marg_mask = torch.squeeze(marg_mask, (2, 3))
+                    samples[~marg_mask] = x[~marg_mask]
 
                 return samples
 
-    def sample(self, num_samples=1, class_idx=0, x=None, **kwargs):
-        return self.backtrack(num_samples=num_samples, class_idx=class_idx, x=x, mode='sample', **kwargs)
+    def sample(self, num_samples=1, class_idxs=None, x=None, **kwargs):
+        return self.backtrack(num_samples=num_samples, class_idxs=class_idxs, x=x, mode='sample', **kwargs)
 
-    def mpe(self, num_samples=1, class_idx=0, x=None, **kwargs):
-        return self.backtrack(num_samples=num_samples, class_idx=class_idx, x=x, mode='argmax', **kwargs)
+    def mpe(self, num_samples=1, class_idxs=None, x=None, **kwargs):
+        return self.backtrack(num_samples=num_samples, class_idxs=class_idxs, x=x, mode='argmax', **kwargs)
 
     def em_set_hyperparams(self, online_em_frequency, online_em_stepsize, purge=True):
         for l in self.einet_layers:

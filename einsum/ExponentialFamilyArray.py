@@ -72,7 +72,6 @@ class ExponentialFamilyArray(torch.nn.Module):
         self.ll = None
         self.suff_stats = None
 
-        self.marginalization_idx = None
         self.marginalization_mask = None
 
         self._use_em = use_em
@@ -266,12 +265,9 @@ class ExponentialFamilyArray(torch.nn.Module):
 
         # Marginalization in PCs works by simply setting leaves corresponding to marginalized variables to 1 (0 in
         # (log-domain). We achieve this by a simple multiplicative 0-1 mask, generated here.
-        # TODO: the marginalization mask doesn't need to be computed every time; only when marginalization_idx changes.
-        if self.marginalization_idx is not None:
+        if self.marginalization_mask is not None:
             with torch.no_grad():
-                self.marginalization_mask = torch.ones(self.num_var, dtype=self.ll.dtype, device=self.ll.device)
-                self.marginalization_mask.data[self.marginalization_idx] = 0.0
-                shape = (1, self.num_var) + (1,) * len(self.array_shape)
+                shape = (-1, self.num_var) + (1,) * len(self.array_shape)
                 self.marginalization_mask = self.marginalization_mask.reshape(shape)
                 self.marginalization_mask.requires_grad_(False)
         else:
@@ -369,13 +365,13 @@ class ExponentialFamilyArray(torch.nn.Module):
         self._p_acc = None
         self._stats_acc = None
 
-    def set_marginalization_idx(self, idx):
-        """Set indicices of marginalized variables."""
-        self.marginalization_idx = idx
+    def set_marginalization_mask(self, mask):
+        """Set the binary mask of marginalized variables."""
+        self.marginalization_mask = mask
 
-    def get_marginalization_idx(self):
-        """Set indicices of marginalized variables."""
-        return self.marginalization_idx
+    def get_marginalization_mask(self):
+        """Set the binary mask of marginalized variables."""
+        return self.marginalization_mask
 
 
 def shift_last_axis_to(x, i):

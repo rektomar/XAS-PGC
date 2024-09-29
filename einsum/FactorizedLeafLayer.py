@@ -150,10 +150,10 @@ class FactorizedLeafLayer(Layer):
 
     # --------------------------------------------------------------------------------
 
-    def set_marginalization_idx(self, idx):
-        """Set indicices of marginalized variables."""
-        self.ef_array.set_marginalization_idx(idx)
+    def set_marginalization_mask(self, mask):
+        """Set the binary mask of marginalized variables."""
+        self.ef_array.set_marginalization_mask(mask)
 
-    def get_marginalization_idx(self):
-        """Get indicices of marginalized variables."""
-        return self.ef_array.get_marginalization_idx()
+    def get_marginalization_mask(self):
+        """Get the binary mask of marginalized variables."""
+        return self.ef_array.get_marginalization_mask()
