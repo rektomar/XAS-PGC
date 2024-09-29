@@ -1,8 +1,10 @@
 __pycache__
 data/qm9_perm.pt
 data/qm9_sort.pt
+data/qm9_mc.pt
 data/zinc250k_perm.pt
 data/zinc250k_sort.pt
+data/zinc250k_mc.pt
 results
 einsum
 gridsearch.log

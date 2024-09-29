@@ -4,11 +4,33 @@ import torch
 from rdkit import Chem
 
 
+# VALENCY_LIST has to change for different datasets.
 VALENCY_LIST = {6:4, 7:3, 8:2, 9:1, 15:3, 16:2, 17:1, 35:1, 53:1}
 
 BOND_ENCODER = {Chem.BondType.SINGLE: 0, Chem.BondType.DOUBLE: 1, Chem.BondType.TRIPLE: 2}
 BOND_DECODER = {0: Chem.BondType.SINGLE, 1: Chem.BondType.DOUBLE, 2: Chem.BondType.TRIPLE}
 
+
+def _mol2x(mol, max_atom, atom_list):
+    atom_tensor = torch.zeros(max_atom, dtype=torch.int8) + len(atom_list) - 1
+    for atom_idx, atom in enumerate(mol.GetAtoms()):
+        atom_tensor[atom_idx] = atom_list.index(atom.GetAtomicNum())
+    return atom_tensor
+
+def _mol2a(mol, max_atom):
+    bond_tensor = torch.zeros(max_atom, max_atom, dtype=torch.int8) + 3
+    for bond in mol.GetBonds():
+        c = BOND_ENCODER[bond.GetBondType()]
+        i = bond.GetBeginAtomIdx()
+        j = bond.GetEndAtomIdx()
+        bond_tensor[i, j] = c
+        bond_tensor[j, i] = c
+    return bond_tensor
+
+def _mol2g(mol, max_atom, atom_list):
+    x = _mol2x(mol, max_atom, atom_list)
+    a = _mol2a(mol, max_atom)
+    return x, a
 
 def mol2x(mol, max_atom, atom_list):
     num_atom = len(atom_list)

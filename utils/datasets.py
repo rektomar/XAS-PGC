@@ -8,9 +8,11 @@ from rdkit import Chem
 from tqdm import tqdm
 from rdkit import RDLogger
 
-from utils.molecular import mol2g, g2mol
-from utils.graphs import permute_graph
+from utils.molecular import mol2g, g2mol, _mol2g
+from utils.graphs import permute_graph, flatten, bandwidth
 from utils.evaluate import evaluate_molecules
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import reverse_cuthill_mckee
 
 MOLECULAR_DATASETS = {
     'qm9': {
@@ -28,7 +30,7 @@ MOLECULAR_DATASETS = {
 }
 
 
-def download_qm9(dir='data/', canonical=True):
+def download_qm9(dir='data/', order='canonical'):
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
 
@@ -38,12 +40,12 @@ def download_qm9(dir='data/', canonical=True):
     print('Downloading and preprocessing the QM9 dataset.')
 
     urllib.request.urlretrieve(url, f'{file}.csv')
-    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['qm9']['max_atoms'], MOLECULAR_DATASETS['qm9']['atom_list'], canonical)
+    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['qm9']['max_atoms'], MOLECULAR_DATASETS['qm9']['atom_list'], order)
     os.remove(f'{file}.csv')
 
     print('Done.')
 
-def download_zinc250k(dir='data/', canonical=True):
+def download_zinc250k(dir='data/', order='canonical'):
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
 
@@ -53,35 +55,57 @@ def download_zinc250k(dir='data/', canonical=True):
     print('Downloading and preprocessing the Zinc250k dataset.')
 
     urllib.request.urlretrieve(url, f'{file}.csv')
-    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['zinc250k']['max_atoms'], MOLECULAR_DATASETS['zinc250k']['atom_list'], canonical)
+    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['zinc250k']['max_atoms'], MOLECULAR_DATASETS['zinc250k']['atom_list'], order)
     os.remove(f'{file}.csv')
 
     print('Done.')
 
 
-def preprocess(path, smile_col, prop_name, max_atom, atom_list, canonical=True):
+def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical'):
     input_df = pandas.read_csv(f'{path}.csv', sep=',', dtype='str')
     smls_list = list(input_df[smile_col])
     prop_list = list(input_df[prop_name])
     data_list = []
+    max_bandwidth = 0
 
     for smls, prop in tqdm(zip(smls_list, prop_list)):
         mol = Chem.MolFromSmiles(smls)
         Chem.Kekulize(mol)
+        n = mol.GetNumAtoms()
 
-        if canonical == True:
+        if order == 'canonical':
             x, a = mol2g(mol, max_atom, atom_list)
             s = Chem.MolToSmiles(mol, kekuleSmiles=True)
-            name = f'{path}_sort.pt'
-        else:
+            name = f'{path}_canonical.pt'
+
+        elif order == 'mc':
+            x, a = _mol2g(mol, max_atom, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True)
+            p = reverse_cuthill_mckee(csr_matrix((a != 3).to(torch.int8)))
+            x, a = permute_graph(x, a, p.copy())
+            b = bandwidth((a != 3).to(torch.int8), n)
+            a = flatten(a, b)
+            if b > max_bandwidth:
+                max_bandwidth = b
+
+            name = f'{path}_mc.pt'
+
+        elif order == 'rand':
             x, a = mol2g(mol, max_atom, atom_list)
             num_full = mol.GetNumAtoms()
             x, a = permute_graph(x, a, torch.cat((torch.randperm(num_full), torch.arange(num_full, max_atom))))
             s = Chem.MolToSmiles(g2mol(x, a, atom_list), kekuleSmiles=True, canonical=False)
-            name = f'{path}_perm.pt'
+            name = f'{path}_rand.pt'
+
+        else:
+            os.error('Unknown order')
+
         y = torch.tensor([float(prop)])
 
-        data_list.append({'x': x, 'a': a, 'n': mol.GetNumAtoms(), 's': s, 'y': y})
+        data_list.append({'x': x, 'a': a, 'b': b, 'n': n, 's': s, 'y': y})
+
+    for data in data_list:
+        data['a'] = torch.nn.functional.pad(data['a'], (0, max_bandwidth - data['b']), 'constant', 3)
 
     torch.save(data_list, name)
 
@@ -95,11 +119,8 @@ class DictDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
-def load_dataset(name, batch_size, raw=False, seed=0, split=None, dir='data/', canonical=True):
-    if canonical == True:
-        x = DictDataset(torch.load(f'{dir}{name}_sort.pt', weights_only=True))
-    else:
-        x = DictDataset(torch.load(f'{dir}{name}_perm.pt', weights_only=True))
+def load_dataset(name, batch_size, raw=False, seed=0, split=None, dir='data/', order='canonical'):
+    x = DictDataset(torch.load(f'{dir}{name}_{order}.pt', weights_only=True))
 
     if split is None:
         with open(f'{dir}i_val_{name}.json') as f:
@@ -123,26 +144,27 @@ def load_dataset(name, batch_size, raw=False, seed=0, split=None, dir='data/', c
 
 if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
+    torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
     dataset = 'qm9'
-    canonical = False
+    order = 'mc'
 
     if download:
         if dataset == 'qm9':
-            download_qm9(canonical=canonical)
+            download_qm9(order=order)
         elif dataset == 'zinc250k':
-            download_zinc250k(canonical=canonical)
+            download_zinc250k(order=order)
         else:
             os.error('Unsupported dataset.')
 
-    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.1, 0.9], canonical=canonical)
+    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.1, 0.9], order=order)
 
     x = [e['x'] for e in loader_trn.dataset]
     a = [e['a'] for e in loader_trn.dataset]
     s = [e['s'] for e in loader_trn.dataset]
 
-    print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=canonical))
+    # print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
 
     # loader_trn, loader_val = load_dataset(dataset, 100, split=[0.8, 0.2], canonical=False)
 
