@@ -90,11 +90,10 @@ class MolSPNZeroCore(nn.Module):
         pass
 
     def forward(self, x, a):
-        x = x.to(self.device)
-        a = a.to(self.device)
         if   self.regime == 'cat' or self.regime == 'bin':
-            _x, _a = ohe2cat(x, a)
+            _x, _a = x, a
         elif self.regime == 'deq':
+            x, a = cat2ohe(x, a, x.size(-1), a.size(-1))
             _x = x + self.dc_n*torch.rand(x.size(), device=self.device)
             _a = a + self.dc_e*torch.rand(a.size(), device=self.device)
         else:
@@ -105,14 +104,8 @@ class MolSPNZeroCore(nn.Module):
         return self(x, a).mean()
 
     @abstractmethod
-    def _sample(self, num_samples):
-        pass
-
     def sample(self, num_samples):
-        x, a = self._sample(num_samples)
-        if self.regime == 'cat' or self.regime == 'bin':
-            x, a = cat2ohe(x, a, self.nk_nodes, self.nk_edges)
-        return x, a
+        pass
 
 
 class MolSPNZeroSort(MolSPNZeroCore):
@@ -156,7 +149,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
 
         return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
 
-    def _sample(self, num_samples):
+    def sample(self, num_samples):
         if   self.regime == 'cat' or self.regime == 'bin':
             x = torch.zeros(num_samples, self.nd_nodes)
             l = torch.zeros(num_samples, self.nd_edges)

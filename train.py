@@ -39,19 +39,26 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
+    order = 'canonical'
+
     names = [
+        # order = 'mc'
+        # 'molspn_band_sort',
+
+        # order = 'canonical'
         # 'molspn_ffnn_sort',
         # 'molspn_conv_sort',
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
+
         # 'molspn_zero_sort',
         # 'molspn_perm_sort',
-        'molspn_band_sort',
-        # 'molspn_marg_sort',
+        'molspn_marg_sort',
         # 'molspn_none_sort',
         # 'molspn_norm_sort',
         # 'molspn_vaef_sort',
-        # 'molspn_vaex_sort',
+
+        # need maintanence
         # 'molspn_vaet_sort',
         # 'moflow_sort',
         # 'graphspn_zero_sort'
@@ -63,11 +70,11 @@ if __name__ == '__main__':
         hyperpars['atom_list'] = MOLECULAR_DATASETS[dataset]['atom_list']
         hyperpars['max_atoms'] = MOLECULAR_DATASETS[dataset]['max_atoms']
 
-        order = 'mc'
-
         loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.8, 0.2], order=order)
-        hyperpars['model_hyperpars']['bw'] = loader_trn.dataset[0]['a'].size(-1)
         smiles_trn = [x['s'] for x in loader_trn.dataset]
+
+        if order == 'mc':
+            hyperpars['model_hyperpars']['bw'] = loader_trn.dataset[0]['a'].size(-1)
 
         model = MODELS[name](**hyperpars['model_hyperpars'])
         print(dataset)

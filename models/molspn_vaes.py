@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from typing import Optional
-from models.utils import CategoricalEncoder, CategoricalDecoder, GaussianEncoder, EncoderFFNNTril, DecoderFFNNTril, EncoderFFNN, DecoderFFNN, GaussianSampler, CategoricalSampler
+from models.utils import cat2ohe, ohe2cat, CategoricalEncoder, CategoricalDecoder, GaussianEncoder, EncoderFFNNTril, DecoderFFNNTril, EncoderFFNN, DecoderFFNN, GaussianSampler, CategoricalSampler
 from models.graph_transformer import GraphTransformer
 from utils.graph_features_general import ExtraFeatures
 
@@ -29,6 +29,8 @@ class MolSPNVAEFSort(nn.Module):
         super(MolSPNVAEFSort, self).__init__()
 
         self.features_g = ExtraFeatures(ftype, nx)
+        self.nx_x = nx_x
+        self.nx_a = nx_a
 
         nf_x = self.features_g.nf_x
         nf_a = self.features_g.nf_a
@@ -60,8 +62,7 @@ class MolSPNVAEFSort(nn.Module):
         self.to(device)
 
     def forward(self, x, a):
-        xx = x.to(device=self.device, dtype=torch.float)
-        aa = a.to(device=self.device, dtype=torch.float)
+        xx, aa = cat2ohe(x, a, self.nx_x, self.nx_a)
 
         xf, af, yf = self.features_g(xx, aa)
         xe = torch.cat((xx, xf), dim=-1)
@@ -89,7 +90,7 @@ class MolSPNVAEFSort(nn.Module):
 
         xx[~m,  :] = torch.cat((torch.zeros(xx.shape[-1]-1), torch.ones(1))).type_as(xx)
 
-        return xx, xa
+        return ohe2cat(xx, xa)
 
     def sample_conditional(self, x, a, mx, ma, num_samples, n_mc_samples=16384):
         # interpreting decoder as continuous mixture
@@ -132,6 +133,8 @@ class MolSPNVAETSort(nn.Module):
                  ):
         super(MolSPNVAETSort, self).__init__()
 
+        self.nx_x = nx_x
+
         self.features_g = ExtraFeatures(ftype, nx)
 
         nf_x = self.features_g.nf_x
@@ -153,8 +156,8 @@ class MolSPNVAETSort(nn.Module):
         self.to(device)
 
     def forward(self, x, a):
-        xx = x.to(device=self.device, dtype=torch.float)
-        aa = a.to(device=self.device, dtype=torch.float)
+        # m = (x != self.nx_x-1).type_as(x)
+        xx, aa = cat2ohe(x, a, x.size(-1), a.size(-1))
 
         xf, af, yf = self.features_g(xx, aa)
         xe = torch.cat((xx, xf), dim=-1)
@@ -171,9 +174,9 @@ class MolSPNVAETSort(nn.Module):
     def sample(self, num_samples):
         zx, za, zy, _ = self.sampler(num_samples)
         xx, xa = self.decoder.sample(zx, za, zy)
-        return xx, xa
+        return ohe2cat(xx, xa)
 
 MODELS = {
     'molspn_vaef_sort': MolSPNVAEFSort,
-    'molspn_vaet_sort': MolSPNVAETSort,
+    # 'molspn_vaet_sort': MolSPNVAETSort,
 }

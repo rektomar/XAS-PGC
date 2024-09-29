@@ -153,7 +153,7 @@ class MolSPNBandCore(nn.Module):
         for i in range(num_samples):
             a[i] = unflatten(l[i])
 
-        return cat2ohe(x, a, self.nk_nodes, self.nk_edges)
+        return x, a
 
 
 class MolSPNBandSort(MolSPNBandCore):

@@ -3,7 +3,6 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from models.utils import ohe2cat, cat2ohe
 
 
 class MolSPNNormCore(nn.Module):
@@ -59,11 +58,8 @@ class MolSPNNormCore(nn.Module):
         pass
 
     def forward(self, x, a):
-        x = x.to(self.device)
-        a = a.to(self.device)
-        _x, _a = ohe2cat(x, a)
-        _x = 2*(_x/(self.nk_nodes - 1) - 0.5)
-        _a = 2*(_a/(self.nk_edges - 1) - 0.5)
+        _x = 2*(x/(self.nk_nodes - 1) - 0.5)
+        _a = 2*(a/(self.nk_edges - 1) - 0.5)
         return self._forward(_x, _a)
 
     def logpdf(self, x, a):
@@ -77,7 +73,6 @@ class MolSPNNormCore(nn.Module):
         x, a = self._sample(num_samples)
         x = ((x.clamp(-1, 1)/2 + 0.5)*(self.nk_nodes - 1)).to(torch.int64)
         a = ((a.clamp(-1, 1)/2 + 0.5)*(self.nk_edges - 1)).to(torch.int64)
-        x, a = cat2ohe(x, a, self.nk_nodes, self.nk_edges)
         return x, a
 
 

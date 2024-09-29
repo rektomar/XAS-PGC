@@ -8,7 +8,7 @@ from rdkit import Chem
 from tqdm import tqdm
 from rdkit import RDLogger
 
-from utils.molecular import mol2g, g2mol, _mol2g
+from utils.molecular import mol2g, g2mol
 from utils.graphs import permute_graph, flatten, bandwidth
 from utils.evaluate import evaluate_molecules
 from scipy.sparse import csr_matrix
@@ -72,14 +72,14 @@ def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical
         mol = Chem.MolFromSmiles(smls)
         Chem.Kekulize(mol)
         n = mol.GetNumAtoms()
+        x, a = mol2g(mol, max_atom, atom_list)
+        y = torch.tensor([float(prop)])
 
         if order == 'canonical':
-            x, a = mol2g(mol, max_atom, atom_list)
             s = Chem.MolToSmiles(mol, kekuleSmiles=True)
-            name = f'{path}_canonical.pt'
+            data_list.append({'x': x, 'a': a, 'n': n, 's': s, 'y': y})
 
         elif order == 'mc':
-            x, a = _mol2g(mol, max_atom, atom_list)
             s = Chem.MolToSmiles(mol, kekuleSmiles=True)
             p = reverse_cuthill_mckee(csr_matrix((a != 3).to(torch.int8)))
             x, a = permute_graph(x, a, p.copy())
@@ -87,27 +87,21 @@ def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical
             a = flatten(a, b)
             if b > max_bandwidth:
                 max_bandwidth = b
-
-            name = f'{path}_mc.pt'
+            data_list.append({'x': x, 'a': a, 'b': b, 'n': n, 's': s, 'y': y})
 
         elif order == 'rand':
-            x, a = mol2g(mol, max_atom, atom_list)
-            num_full = mol.GetNumAtoms()
-            x, a = permute_graph(x, a, torch.cat((torch.randperm(num_full), torch.arange(num_full, max_atom))))
+            x, a = permute_graph(x, a, torch.cat((torch.randperm(n), torch.arange(n, max_atom))))
             s = Chem.MolToSmiles(g2mol(x, a, atom_list), kekuleSmiles=True, canonical=False)
-            name = f'{path}_rand.pt'
+            data_list.append({'x': x, 'a': a, 'n': n, 's': s, 'y': y})
 
         else:
             os.error('Unknown order')
 
-        y = torch.tensor([float(prop)])
+    if order == 'mc':
+        for data in data_list:
+            data['a'] = torch.nn.functional.pad(data['a'], (0, max_bandwidth - data['b']), 'constant', 3)
 
-        data_list.append({'x': x, 'a': a, 'b': b, 'n': n, 's': s, 'y': y})
-
-    for data in data_list:
-        data['a'] = torch.nn.functional.pad(data['a'], (0, max_bandwidth - data['b']), 'constant', 3)
-
-    torch.save(data_list, name)
+    torch.save(data_list, f'{path}_{order}.pt')
 
 class DictDataset(torch.utils.data.Dataset):
     def __init__(self, data):
@@ -146,9 +140,9 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
-    download = True
+    download = False
     dataset = 'qm9'
-    order = 'mc'
+    order = 'canonical'
 
     if download:
         if dataset == 'qm9':
@@ -164,7 +158,7 @@ if __name__ == '__main__':
     a = [e['a'] for e in loader_trn.dataset]
     s = [e['s'] for e in loader_trn.dataset]
 
-    # print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
+    print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
 
     # loader_trn, loader_val = load_dataset(dataset, 100, split=[0.8, 0.2], canonical=False)
 

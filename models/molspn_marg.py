@@ -5,7 +5,6 @@ import itertools
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from models.utils import ohe2cat, cat2ohe
 from tqdm import tqdm
 
 
@@ -95,7 +94,6 @@ class MolSPNMargCore(nn.Module):
 
     def forward(self, x, a):
         l = []
-        x, a = ohe2cat(x, a)
         c = torch.count_nonzero(x == self.nk_nodes-1, dim=1)
         for num_empty in torch.unique(c):
             num_full = self.nd_nodes-num_empty.item()
@@ -134,7 +132,7 @@ class MolSPNMargCore(nn.Module):
 
         a[:, self.m] = l
 
-        return cat2ohe(x, a, self.nk_nodes, self.nk_edges)
+        return x, a
 
 
 class MolSPNMargSort(MolSPNMargCore):

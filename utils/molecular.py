@@ -11,13 +11,13 @@ BOND_ENCODER = {Chem.BondType.SINGLE: 0, Chem.BondType.DOUBLE: 1, Chem.BondType.
 BOND_DECODER = {0: Chem.BondType.SINGLE, 1: Chem.BondType.DOUBLE, 2: Chem.BondType.TRIPLE}
 
 
-def _mol2x(mol, max_atom, atom_list):
+def mol2x(mol, max_atom, atom_list):
     atom_tensor = torch.zeros(max_atom, dtype=torch.int8) + len(atom_list) - 1
     for atom_idx, atom in enumerate(mol.GetAtoms()):
         atom_tensor[atom_idx] = atom_list.index(atom.GetAtomicNum())
     return atom_tensor
 
-def _mol2a(mol, max_atom):
+def mol2a(mol, max_atom):
     bond_tensor = torch.zeros(max_atom, max_atom, dtype=torch.int8) + 3
     for bond in mol.GetBonds():
         c = BOND_ENCODER[bond.GetBondType()]
@@ -25,33 +25,6 @@ def _mol2a(mol, max_atom):
         j = bond.GetEndAtomIdx()
         bond_tensor[i, j] = c
         bond_tensor[j, i] = c
-    return bond_tensor
-
-def _mol2g(mol, max_atom, atom_list):
-    x = _mol2x(mol, max_atom, atom_list)
-    a = _mol2a(mol, max_atom)
-    return x, a
-
-def mol2x(mol, max_atom, atom_list):
-    num_atom = len(atom_list)
-    atom_tensor = torch.zeros(max_atom, num_atom, dtype=torch.int8)
-    for atom_idx, atom in enumerate(mol.GetAtoms()):
-        atom_tensor[atom_idx, atom_list.index(atom.GetAtomicNum())] = 1
-    atom_tensor[~torch.sum(atom_tensor, 1, dtype=torch.bool), num_atom-1] = 1
-    return atom_tensor
-
-def mol2a(mol, max_atom):
-    bond_tensor = torch.zeros(max_atom, max_atom, 4, dtype=torch.int8)
-    mask_tensor = torch.zeros(max_atom, max_atom, 4, dtype=torch.bool)
-    for bond in mol.GetBonds():
-        c = BOND_ENCODER[bond.GetBondType()]
-        i = bond.GetBeginAtomIdx()
-        j = bond.GetEndAtomIdx()
-        bond_tensor[i, j, c] = 1.0
-        bond_tensor[j, i, c] = 1.0
-    mask_tensor[:, :, 3] = ~bond_tensor.sum(2, dtype=torch.bool)
-    mask_tensor[range(max_atom), range(max_atom), 3] = 0
-    bond_tensor[mask_tensor] = 1
     return bond_tensor
 
 def mol2g(mol, max_atom, atom_list):
@@ -62,15 +35,13 @@ def mol2g(mol, max_atom, atom_list):
 def g2mol(x, a, atom_list):
     mol = Chem.RWMol()
 
-    atoms = torch.argmax(x, axis=-1)
-    atoms_exist = atoms != len(atom_list) - 1
-    atoms = atoms[atoms_exist]
+    atoms_exist = x != len(atom_list) - 1
+    atoms = x[atoms_exist]
 
     for atom in atoms:
         mol.AddAtom(Chem.Atom(atom_list[atom]))
 
-    bonds = torch.argmax(a, axis=-1)
-    bonds = bonds[atoms_exist, :][:, atoms_exist]
+    bonds = a[atoms_exist, :][:, atoms_exist]
     for start, end in zip(*torch.nonzero(bonds < 3, as_tuple=True)):
         if start > end:
             mol.AddBond(int(start), int(end), BOND_DECODER[bonds[start, end].item()])
@@ -92,6 +63,8 @@ def mols2gs(mols, max_atom, atom_list):
     return x, a
 
 def gs2mols(x, a, atom_list):
+    x = x.to(torch.int)
+    a = a.to(torch.int)
     return [g2mol(x, a, atom_list) for x, a in zip(x, a)]
 
 
@@ -126,27 +99,12 @@ def correct(mol):
 
     return mol
 
-# def getvalid(mol, canonical=True):
-#     _mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol, canonical=canonical)) if mol is not None else None
-#     if _mol is not None and '.' not in Chem.MolToSmiles(_mol, canonical=canonical):
-#         Chem.Kekulize(_mol)
-#         return _mol
-#     else:
-#         return None
-
 def getvalid(mol, canonical=True):
     sml = Chem.MolToSmiles(mol, canonical=canonical)
     if Chem.MolFromSmiles(sml) is not None and mol is not None and '.' not in sml:
         return mol
     else:
         return None
-
-# def isvalid(mol, canonical=True):
-#     _mol = Chem.MolFromSmiles(Chem.MolToSmiles(mol, canonical=canonical)) if mol is not None else None
-#     if _mol is not None and '.' not in Chem.MolToSmiles(_mol, canonical=canonical):
-#         return True
-#     else:
-#         return False
 
 def isvalid(mol, canonical=True):
     sml = Chem.MolToSmiles(mol, canonical=canonical)

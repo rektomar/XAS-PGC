@@ -82,9 +82,6 @@ class MolSPNNoneCore(nn.Module):
         pass
 
     def forward(self, x, a):
-        x = x.to(self.device)
-        a = a.to(self.device)
-        x, a = ohe2cat(x, a)
         x, a = cat2bin(x, a, self.nk_nodes, self.nk_edges)
         return self._forward(x, a)
 
@@ -100,7 +97,6 @@ class MolSPNNoneCore(nn.Module):
         x, a = bin2cat(x, a, self.nk_nodes, self.nk_edges)
         x = x.clamp(max=self.nk_nodes-1)
         a = a.clamp(max=self.nk_edges-1)
-        x, a = cat2ohe(x, a, self.nk_nodes, self.nk_edges)
         return x, a
 
 
