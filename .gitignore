@@ -6,7 +6,6 @@ data/zinc250k_rand.pt
 data/zinc250k_canonical.pt
 data/zinc250k_mc.pt
 results
-einsum
 gridsearch.log
 
 qm9.pdf
