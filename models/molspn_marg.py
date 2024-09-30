@@ -73,17 +73,19 @@ class MolSPNMargCore(nn.Module):
         m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
 
         n = m_nodes.sum(dim=1) - 1
-        d = torch.distributions.Categorical(logits=self.logits_n)
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
 
         self.network_nodes.set_marginalization_mask(m_nodes)
         self.network_edges.set_marginalization_mask(m_edges)
 
-        return d.log_prob(n) + self._forward(x, a)
+        return dist_n.log_prob(n) + self._forward(x, a)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
     def sample(self, num_samples):
+        if num_samples > 200:
+            num_samples = 200
         # x = torch.zeros(num_samples, self.nd_nodes,                device=self.device)
         # l = torch.zeros(num_samples, self.nd_edges,                device=self.device)
         a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)

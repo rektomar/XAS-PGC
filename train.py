@@ -39,11 +39,11 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
-    order = 'canonical'
+    order = 'mc'
 
     names = [
         # order = 'mc'
-        # 'molspn_band_sort',
+        'molspn_band_sort',
 
         # order = 'canonical'
         # 'molspn_ffnn_sort',
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         # 'molspn_flow_sort',
         # 'molspn_tran_sort',
 
-        'molspn_zero_sort',
+        # 'molspn_zero_sort',
         # 'molspn_perm_sort',
         # 'molspn_marg_sort',
         # 'molspn_none_sort',

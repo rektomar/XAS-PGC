@@ -86,9 +86,9 @@ class MolSPNBandCore(nn.Module):
         self.network_nodes.initialize()
         self.network_edges.initialize()
 
-        self.logits_n = nn.Parameter(torch.ones(nd_n,  device=device), requires_grad=True)
-        self.logits_b = nn.Parameter(torch.ones(bw+1,  device=device), requires_grad=True)
-        self.logits_w = nn.Parameter(torch.ones(1, nc, device=device), requires_grad=True)
+        self.logits_n = nn.Parameter(torch.ones(nd_n,   device=device), requires_grad=True)
+        self.logits_b = nn.Parameter(torch.ones(bw + 1, device=device), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.ones(1, nc,  device=device), requires_grad=True)
 
         self.device = device
         self.to(device)
@@ -98,60 +98,54 @@ class MolSPNBandCore(nn.Module):
         pass
 
     def forward(self, x, a):
-        l = []
-        mask_nodes = (x != self.nk_nodes-1)
-        mask_bands = (a == self.nk_edges-1).all(dim=1)
-        n_nodes = torch.count_nonzero( mask_nodes, dim=1)
-        n_bands = torch.count_nonzero(~mask_bands, dim=1)
+        m_nodes =  (x != self.nk_nodes-1)
+        m_bands = ~(a == self.nk_edges-1).all(dim=1)
+        n_nodes = m_nodes.sum(dim=1) - 1
+        n_bands = m_bands.sum(dim=1)
         d_nodes = torch.distributions.Categorical(logits=self.logits_n)
         d_bands = torch.distributions.Categorical(logits=self.logits_b)
 
-        for n in torch.unique(n_nodes):
-            marginalize_nodes(self.network_nodes, self.nd_nodes, n)
-            marginalize_edges(self.network_edges, self.nd_nodes, self.bw, n)
-            l.append(self._forward(x[n_nodes == n], a[n_nodes == n], n))
+        self.network_nodes.set_marginalization_mask(m_nodes)
+        self.network_edges.set_marginalization_mask(m_bands.unsqueeze(1).expand(-1, self.nd_nodes, -1).reshape(-1, self.nd_edges))
 
-        n, i = n_nodes.sort()
-        m = n_bands[i]
-        n = n.to(self.device) - 1
-        m = m.to(self.device)
-
-        return d_nodes.log_prob(n) + d_bands.log_prob(m) + torch.cat(l)
+        return d_nodes.log_prob(n_nodes) + d_bands.log_prob(n_bands) + self._forward(x, a)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        o = 0
-        x = torch.zeros(num_samples, self.nd_nodes)
-        l = torch.zeros(num_samples, self.nd_nodes, self.bw)
-        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
+        # x = torch.zeros(num_samples, self.nd_nodes)
+        # l = torch.zeros(num_samples, self.nd_nodes, self.bw)
+        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
 
-        d_n = torch.distributions.Categorical(logits=self.logits_n)
-        d_b = torch.distributions.Categorical(logits=self.logits_b)
-        d_w = torch.distributions.Categorical(logits=self.logits_w)
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
+        dist_b = torch.distributions.Categorical(logits=self.logits_b)
+        dist_w = torch.distributions.Categorical(logits=self.logits_w)
 
-        n_nodes = d_n.sample((num_samples, )).to(torch.int)
+        samp_n = dist_n.sample((num_samples, ))
+        samp_b = dist_b.sample((num_samples, ))
+        samp_w = dist_w.sample((num_samples, )).squeeze()
 
-        for n, n_count in zip(*torch.unique(n_nodes, return_counts=True)):
-            marginalize_nodes(self.network_nodes, self.nd_nodes, n+1)
-            marginalize_edges(self.network_edges, self.nd_nodes, self.bw, n+1)
+        m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
+        m_bands = torch.arange(self.bw,       device=self.device).unsqueeze(0) <  samp_b.unsqueeze(1)
+        m_bands = m_bands.unsqueeze(1).expand(-1, self.nd_nodes, -1).reshape(-1, self.nd_edges)
 
-            components = d_w.sample((n_count, ))
-            bandwidths = d_b.sample((n_count, ))
-            for i, (c, b) in enumerate(zip(components, bandwidths)):
-                x[i+o] = self.network_nodes.sample(1, class_idx=c).cpu()
-                l[i+o] = self.network_edges.sample(1, class_idx=c).view(-1, self.nd_nodes, self.bw).cpu()
-                x[i+o, n:] = self.nk_nodes - 1
-                # print("-------------------")
-                # print(b)
-                # print(l[i+o])
-                l[i+o, :, b:] = self.nk_edges - 1
-                # print(l[i+o])
-            o += n_count
+        self.network_nodes.set_marginalization_mask(m_nodes)
+        self.network_edges.set_marginalization_mask(m_bands)
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w)
+        x[~m_nodes] = self.nk_nodes - 1
+        l[~m_bands] = self.nk_edges - 1
 
+        l = l.view(-1, self.nd_nodes, self.bw)
         for i in range(num_samples):
             a[i] = unflatten(l[i])
+
+        print("-----------------------------------")
+        print(samp_n[0])
+        print(samp_b[0])
+        print(x[0])
+        print(a[0])
 
         return x, a
 
@@ -174,7 +168,7 @@ class MolSPNBandSort(MolSPNBandCore):
                  device='cuda'):
         super().__init__(nc, nd_n, nk_n, nk_e, nl_n, nl_e, nr_n, nr_e, ns_n, ns_e, ni_n, ni_e, bw, device)
 
-    def _forward(self, x, a, num_full):
+    def _forward(self, x, a):
         ll_nodes = self.network_nodes(x)
         ll_edges = self.network_edges(a.view(-1, self.nd_edges))
         return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
