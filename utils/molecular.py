@@ -35,7 +35,7 @@ def mol2g(mol, max_atom, atom_list):
 def g2mol(x, a, atom_list):
     mol = Chem.RWMol()
 
-    atoms_exist = x != len(atom_list) - 1
+    atoms_exist = ~((a == 3).all(dim=0) + (x == len(atom_list) - 1))
     atoms = x[atoms_exist]
 
     for atom in atoms:

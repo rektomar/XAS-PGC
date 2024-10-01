@@ -92,7 +92,7 @@ class MolSPNMargCore(nn.Module):
 
         # x += self.nk_nodes - 1
         # l += self.nk_edges - 1
-        # a += self.nk_edges - 1
+        a += self.nk_edges - 1
 
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
@@ -102,14 +102,13 @@ class MolSPNMargCore(nn.Module):
         m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
         m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
 
-        self.network_nodes.set_marginalization_mask(m_nodes)
-        self.network_edges.set_marginalization_mask(m_edges)
         x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
         l = self.network_edges.sample(num_samples, class_idxs=samp_w)
         x[~m_nodes] = self.nk_nodes - 1
         l[~m_edges] = self.nk_edges - 1
 
         a[:, self.m] = l
+        a.transpose(1,2)[:, self.m] = l
 
         return x, a
 

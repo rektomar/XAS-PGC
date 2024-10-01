@@ -10,31 +10,6 @@ from utils.graphs import unflatten
 from tqdm import tqdm
 
 
-def marginalize_nodes(network, nd_nodes, num_full):
-    num_empty = nd_nodes - num_full
-    with torch.no_grad():
-        if num_empty > 0:
-            mx = torch.zeros(nd_nodes, dtype=torch.bool)
-            mx[num_full:] = True
-            marginalization_idx = torch.arange(nd_nodes)[mx.view(-1)]
-
-            network.set_marginalization_idx(marginalization_idx)
-        else:
-            network.set_marginalization_idx(None)
-
-def marginalize_edges(network, nd_nodes, bw, num_full):
-    num_empty = nd_nodes - num_full
-    with torch.no_grad():
-        if num_empty > 0:
-            ma = torch.zeros(nd_nodes, bw, dtype=torch.bool)
-            ma[num_full:, :] = True
-            marginalization_idx = torch.arange(nd_nodes * bw)[ma.flatten()]
-
-            network.set_marginalization_idx(marginalization_idx)
-        else:
-            network.set_marginalization_idx(None)
-
-
 class MolSPNBandCore(nn.Module):
     def __init__(self,
                  nc,
@@ -87,7 +62,6 @@ class MolSPNBandCore(nn.Module):
         self.network_edges.initialize()
 
         self.logits_n = nn.Parameter(torch.ones(nd_n,   device=device), requires_grad=True)
-        self.logits_b = nn.Parameter(torch.ones(bw + 1, device=device), requires_grad=True)
         self.logits_w = nn.Parameter(torch.ones(1, nc,  device=device), requires_grad=True)
 
         self.device = device
@@ -99,53 +73,47 @@ class MolSPNBandCore(nn.Module):
 
     def forward(self, x, a):
         m_nodes =  (x != self.nk_nodes-1)
-        m_bands = ~(a == self.nk_edges-1).all(dim=1)
+        # m_bands = ~(a == self.nk_edges-1).all(dim=1)
         n_nodes = m_nodes.sum(dim=1) - 1
-        n_bands = m_bands.sum(dim=1)
+        # n_bands = m_bands.sum(dim=1)
         d_nodes = torch.distributions.Categorical(logits=self.logits_n)
-        d_bands = torch.distributions.Categorical(logits=self.logits_b)
+        # d_bands = torch.distributions.Categorical(logits=self.logits_b)
 
-        self.network_nodes.set_marginalization_mask(m_nodes)
-        self.network_edges.set_marginalization_mask(m_bands.unsqueeze(1).expand(-1, self.nd_nodes, -1).reshape(-1, self.nd_edges))
+        # m_bands = m_bands.unsqueeze(1).expand(-1, self.nd_nodes, -1) * m_nodes.unsqueeze(2)
+        # m_bands = m_bands.reshape(-1, self.nd_edges)
+        # m_bands = m_nodes.unsqueeze(2).expand(-1, -1, self.bw).reshape(-1, self.nd_edges)
 
-        return d_nodes.log_prob(n_nodes) + d_bands.log_prob(n_bands) + self._forward(x, a)
+        # self.network_nodes.set_marginalization_mask(m_nodes)
+        # self.network_edges.set_marginalization_mask(m_bands)
+
+        return d_nodes.log_prob(n_nodes) + self._forward(x, a)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        # x = torch.zeros(num_samples, self.nd_nodes)
-        # l = torch.zeros(num_samples, self.nd_nodes, self.bw)
+        if num_samples > 200:
+            num_samples = 200
         a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
 
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
-        dist_b = torch.distributions.Categorical(logits=self.logits_b)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
 
         samp_n = dist_n.sample((num_samples, ))
-        samp_b = dist_b.sample((num_samples, ))
         samp_w = dist_w.sample((num_samples, )).squeeze()
 
         m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
-        m_bands = torch.arange(self.bw,       device=self.device).unsqueeze(0) <  samp_b.unsqueeze(1)
-        m_bands = m_bands.unsqueeze(1).expand(-1, self.nd_nodes, -1).reshape(-1, self.nd_edges)
 
-        self.network_nodes.set_marginalization_mask(m_nodes)
-        self.network_edges.set_marginalization_mask(m_bands)
         x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
         l = self.network_edges.sample(num_samples, class_idxs=samp_w)
         x[~m_nodes] = self.nk_nodes - 1
-        l[~m_bands] = self.nk_edges - 1
 
         l = l.view(-1, self.nd_nodes, self.bw)
         for i in range(num_samples):
             a[i] = unflatten(l[i])
 
-        print("-----------------------------------")
-        print(samp_n[0])
-        print(samp_b[0])
-        print(x[0])
-        print(a[0])
+        m_edges = m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1)
+        a[~m_edges] = self.nk_edges - 1
 
         return x, a
 

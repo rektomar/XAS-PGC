@@ -166,11 +166,13 @@ class MolSPNZeroSort(MolSPNZeroCore):
         l = self.network_edges.sample(num_samples, class_idxs=samp_w).cpu()
 
         if   self.regime == 'cat' or self.regime == 'bin':
-            a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes)
+            a = torch.full((num_samples, self.nd_nodes, self.nd_nodes), self.nk_edges - 1, dtype=torch.float)
             a[:, self.m] = l
+            a.transpose(1, 2)[:, self.m] = l
         elif self.regime == 'deq':
             a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges)
             a[:, self.m, :] = l
+
         else:
             os.error('Unknown regime')
 

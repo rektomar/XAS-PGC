@@ -38,27 +38,28 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
     RDLogger.DisableLog('rdApp.*')
 
-    dataset = 'qm9'
-    order = 'mc'
+    dataset = 'zinc250k'
+    order = 'canonical'
+    # order = 'mc'
 
     names = [
         # order = 'mc'
-        'molspn_band_sort',
+        # 'molspn_band_sort',
 
         # order = 'canonical'
-        # 'molspn_ffnn_sort',
-        # 'molspn_conv_sort',
-        # 'molspn_flow_sort',
         # 'molspn_tran_sort',
 
         # 'molspn_zero_sort',
         # 'molspn_perm_sort',
-        # 'molspn_marg_sort',
+        'molspn_marg_sort',
         # 'molspn_none_sort',
         # 'molspn_norm_sort',
         # 'molspn_vaef_sort',
 
         # need maintanence
+        # 'molspn_ffnn_sort',
+        # 'molspn_conv_sort',
+        # 'molspn_flow_sort',
         # 'molspn_vaet_sort',
         # 'moflow_sort',
         # 'graphspn_zero_sort'

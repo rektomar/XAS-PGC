@@ -2,7 +2,7 @@
     "dataset": "qm9",
     "model": "molspn_band_sort",
     "model_hyperpars": {
-        "nc": 100,
+        "nc": 10,
         "nd_n": 9,
         "nk_n": 5,
         "nk_e": 4,

@@ -9,7 +9,7 @@ from tqdm import tqdm
 from rdkit import RDLogger
 
 from utils.molecular import mol2g, g2mol
-from utils.graphs import permute_graph, flatten, bandwidth
+from utils.graphs import permute_graph, flatten, bandwidth, unflatten
 from utils.evaluate import evaluate_molecules
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import reverse_cuthill_mckee
@@ -142,7 +142,7 @@ if __name__ == '__main__':
 
     download = False
     dataset = 'qm9'
-    order = 'canonical'
+    order = 'mc'
 
     if download:
         if dataset == 'qm9':
@@ -152,11 +152,20 @@ if __name__ == '__main__':
         else:
             os.error('Unsupported dataset.')
 
-    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.1, 0.9], order=order)
+    loader_trn, loader_val = load_dataset(dataset, 100, split=[0.99, 0.01], order=order)
 
     x = [e['x'] for e in loader_trn.dataset]
     a = [e['a'] for e in loader_trn.dataset]
     s = [e['s'] for e in loader_trn.dataset]
+
+    x = torch.stack(x)
+    a = torch.stack(a)
+
+    if order == 'mc':
+        r = torch.zeros(x.shape[0], x.shape[1], x.shape[1])
+        for i in range(x.shape[0]):
+            r[i] = unflatten(a[i])
+        a = r
 
     print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
 
