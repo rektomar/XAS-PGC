@@ -93,7 +93,7 @@ class MolSPNZeroCore(nn.Module):
         if   self.regime == 'cat' or self.regime == 'bin':
             _x, _a = x, a
         elif self.regime == 'deq':
-            x, a = cat2ohe(x, a, x.size(-1), a.size(-1))
+            x, a = cat2ohe(x, a, self.nk_nodes, self.nk_edges)
             _x = x + self.dc_n*torch.rand(x.size(), device=self.device)
             _a = a + self.dc_e*torch.rand(a.size(), device=self.device)
         else:
@@ -135,7 +135,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
         super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device, regime, dc_n, dc_e)
 
         self.logits_w = nn.Parameter(torch.ones(1, nc, device=self.device), requires_grad=True)
-        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
+        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=self.device), diagonal=-1)
 
     def _forward(self, x, a):
         ll_nodes = self.network_nodes(x)
@@ -150,33 +150,24 @@ class MolSPNZeroSort(MolSPNZeroCore):
         return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
 
     def sample(self, num_samples):
-        if   self.regime == 'cat' or self.regime == 'bin':
-            x = torch.zeros(num_samples, self.nd_nodes)
-            l = torch.zeros(num_samples, self.nd_edges)
-        elif self.regime == 'deq':
-            x = torch.zeros(num_samples, self.nd_nodes, self.nk_nodes)
-            l = torch.zeros(num_samples, self.nd_edges, self.nk_edges)
-        else:
-            os.error('Unknown regime')
-
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
         samp_w = dist_w.sample((num_samples, )).squeeze()
 
-        x = self.network_nodes.sample(num_samples, class_idxs=samp_w).cpu()
-        l = self.network_edges.sample(num_samples, class_idxs=samp_w).cpu()
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w)
 
         if   self.regime == 'cat' or self.regime == 'bin':
-            a = torch.full((num_samples, self.nd_nodes, self.nd_nodes), self.nk_edges - 1, dtype=torch.float)
+            a = torch.full((num_samples, self.nd_nodes, self.nd_nodes), self.nk_edges - 1, dtype=torch.float, device=self.device)
             a[:, self.m] = l
             a.transpose(1, 2)[:, self.m] = l
         elif self.regime == 'deq':
-            a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges)
+            a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges, device=self.device)
             a[:, self.m, :] = l
-
+            x, a = ohe2cat(x, a)
         else:
             os.error('Unknown regime')
 
-        return x, a
+        return x.cpu(), a.cpu()
 
 MODELS = {
     'molspn_zero_sort': MolSPNZeroSort,

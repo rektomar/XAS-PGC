@@ -59,7 +59,7 @@ class MolSPNMargCore(nn.Module):
 
         self.logits_n = nn.Parameter(torch.randn( nd_n, device=device), requires_grad=True)
         self.logits_w = nn.Parameter(torch.randn(1, nc, device=device), requires_grad=True)
-        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
+        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=device), diagonal=-1)
 
         self.device = device
         self.to(device)
@@ -75,8 +75,8 @@ class MolSPNMargCore(nn.Module):
         n = m_nodes.sum(dim=1) - 1
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
 
-        self.network_nodes.set_marginalization_mask(m_nodes)
-        self.network_edges.set_marginalization_mask(m_edges)
+        # self.network_nodes.set_marginalization_mask(m_nodes)
+        # self.network_edges.set_marginalization_mask(m_edges)
 
         return dist_n.log_prob(n) + self._forward(x, a)
 
@@ -84,8 +84,8 @@ class MolSPNMargCore(nn.Module):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        if num_samples > 200:
-            num_samples = 200
+        # if num_samples > 200:
+        #     num_samples = 200
         # x = torch.zeros(num_samples, self.nd_nodes,                device=self.device)
         # l = torch.zeros(num_samples, self.nd_edges,                device=self.device)
         a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
@@ -110,7 +110,7 @@ class MolSPNMargCore(nn.Module):
         a[:, self.m] = l
         a.transpose(1,2)[:, self.m] = l
 
-        return x, a
+        return x.cpu(), a.cpu()
 
 
 class MolSPNMargSort(MolSPNMargCore):

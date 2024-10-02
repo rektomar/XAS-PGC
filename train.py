@@ -12,6 +12,7 @@ from models import molspn_none
 from models import molspn_perm
 from models import molspn_norm
 from models import molspn_band
+from models import molspn_poon
 from models import molspn_back
 from models import molspn_vaes
 from models import moflow
@@ -21,6 +22,7 @@ MODELS = {
     **molspn_zero.MODELS,
     **molspn_marg.MODELS,
     **molspn_perm.MODELS,
+    **molspn_poon.MODELS,
     **molspn_band.MODELS,
     **molspn_norm.MODELS,
     **molspn_none.MODELS,
@@ -40,6 +42,7 @@ if __name__ == '__main__':
 
     dataset = 'zinc250k'
     order = 'canonical'
+    # order = 'rand'
     # order = 'mc'
 
     names = [
@@ -54,6 +57,7 @@ if __name__ == '__main__':
         'molspn_marg_sort',
         # 'molspn_none_sort',
         # 'molspn_norm_sort',
+        # 'molspn_poon_sort',
         # 'molspn_vaef_sort',
 
         # need maintanence
@@ -82,6 +86,7 @@ if __name__ == '__main__':
         print(json.dumps(hyperpars, indent=4))
         print(model)
         print(f'The number of parameters is {count_parameters(model)}.')
+        print(order)
 
         path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR)
         model = torch.load(path, weights_only=False)

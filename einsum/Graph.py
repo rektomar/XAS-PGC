@@ -225,7 +225,8 @@ def randomly_partition_on_node(graph, node, num_parts=2, proportions=None, rand_
     if rand_state is not None:
         permutation = list(rand_state.permutation(list(node.scope)))
     else:
-        permutation = list(np.random.permutation(list(node.scope)))
+        # permutation = list(np.random.permutation(list(node.scope)))
+        permutation = list(node.scope)
 
     child_indices = []
     for p in range(num_parts):

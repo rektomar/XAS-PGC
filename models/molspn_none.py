@@ -4,8 +4,6 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from models.utils import ohe2cat, cat2ohe
-
 
 def num_bits(n):
     return int((math.log(n-1)/math.log(2)) + 1)
@@ -29,22 +27,25 @@ def bin2cat(x, a, num_node_types, num_edge_types):
     return x, a
 
 
-class MolSPNNoneCore(nn.Module):
+class MolSPNNoneSort(nn.Module):
     def __init__(self,
                  nc,
                  nd_n,
-                 nd_e,
                  nk_n,
                  nk_e,
                  ns_n,
                  ns_e,
+                 nl_n,
+                 nl_e,
+                 nr_n,
+                 nr_e,
                  ni_n,
                  ni_e,
-                 graph_nodes,
-                 graph_edges,
                  device
                  ):
         super().__init__()
+        nd_e = nd_n * (nd_n - 1) // 2
+
         self.nd_nodes = nd_n
         self.nd_edges = nd_e
         self.nk_nodes = nk_n
@@ -69,10 +70,17 @@ class MolSPNNoneCore(nn.Module):
             exponential_family_args={'N': 1},
             use_em=False)
 
+        graph_nodes = Graph.random_binary_trees(nd_n, nl_n, nr_n)
+        graph_edges = Graph.random_binary_trees(nd_e, nl_e, nr_e)
+
         self.network_nodes = EinsumNetwork.EinsumNetwork(graph_nodes, args_nodes)
         self.network_edges = EinsumNetwork.EinsumNetwork(graph_edges, args_edges)
         self.network_nodes.initialize()
         self.network_edges.initialize()
+
+        self.logits_n = nn.Parameter(torch.randn( nd_n, device=device), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.randn(1, nc, device=device), requires_grad=True)
+        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=device), diagonal=-1)
 
         self.device = device
         self.to(device)
@@ -82,8 +90,20 @@ class MolSPNNoneCore(nn.Module):
         pass
 
     def forward(self, x, a):
+        m_nodes = (x != self.nk_nodes-1)
+        m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
+
+        n = m_nodes.sum(dim=1) - 1
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
+
+        # self.network_nodes.set_marginalization_mask(m_nodes)
+        # self.network_edges.set_marginalization_mask(m_edges)
+
         x, a = cat2bin(x, a, self.nk_nodes, self.nk_edges)
-        return self._forward(x, a)
+        ll_nodes = self.network_nodes(x)
+        ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges, num_bits(self.nk_edges)))
+
+        return dist_n.log_prob(n) + torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
@@ -93,57 +113,30 @@ class MolSPNNoneCore(nn.Module):
         pass
 
     def sample(self, num_samples):
-        x, a = self._sample(num_samples)
-        x, a = bin2cat(x, a, self.nk_nodes, self.nk_edges)
+        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
+        a += self.nk_edges - 1
+
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
+        dist_w = torch.distributions.Categorical(logits=self.logits_w)
+        samp_n = dist_n.sample((num_samples, ))
+        samp_w = dist_w.sample((num_samples, )).squeeze()
+
+        m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
+        m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
+
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w)
+        x, l = bin2cat(x, l, self.nk_nodes, self.nk_edges)
+        x[~m_nodes] = self.nk_nodes - 1
+        l[~m_edges] = self.nk_edges - 1
+
+        a[:, self.m] = l
+        a.transpose(1,2)[:, self.m] = l
+
         x = x.clamp(max=self.nk_nodes-1)
         a = a.clamp(max=self.nk_edges-1)
-        return x, a
 
-
-class MolSPNNoneSort(MolSPNNoneCore):
-    def __init__(self,
-                 nc,
-                 nd_n,
-                 nk_n,
-                 nk_e,
-                 nl_n,
-                 nl_e,
-                 nr_n,
-                 nr_e,
-                 ns_n,
-                 ns_e,
-                 ni_n,
-                 ni_e,
-                 device='cuda'
-                 ):
-        nd_e = nd_n * (nd_n - 1) // 2
-
-        graph_nodes = Graph.random_binary_trees(nd_n, nl_n, nr_n)
-        graph_edges = Graph.random_binary_trees(nd_e, nl_e, nr_e)
-
-        super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device)
-
-        self.weights = nn.Parameter(torch.log_softmax(torch.randn(1, nc, device=self.device), dim=1), requires_grad=True)
-        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool), diagonal=-1)
-
-    def _forward(self, x, a):
-        ll_nodes = self.network_nodes(x)
-        ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges, num_bits(self.nk_edges)))
-        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.weights, dim=1), dim=1)
-
-    def _sample(self, num_samples):
-        x = torch.zeros(num_samples, self.nd_nodes, num_bits(self.nk_nodes))
-        l = torch.zeros(num_samples, self.nd_edges, num_bits(self.nk_edges))
-
-        cs = torch.distributions.Categorical(logits=self.weights).sample((num_samples, ))
-        for i, c in enumerate(cs):
-            x[i, :, :] = self.network_nodes.sample(1, class_idx=c).cpu()
-            l[i, :, :] = self.network_edges.sample(1, class_idx=c).cpu()
-
-        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, num_bits(self.nk_edges))
-        a[:, self.m, :] = l
-
-        return x, a
+        return x.cpu(), a.cpu()
 
 MODELS = {
     'molspn_none_sort': MolSPNNoneSort,

@@ -8,12 +8,12 @@
         "nk_e": 4,
         "nl_n": 3,
         "nl_e": 3,
-        "nr_n": 100,
-        "nr_e": 100,
-        "ns_n": 10,
-        "ns_e": 10,
-        "ni_n": 30,
-        "ni_e": 30,
+        "nr_n": 1,
+        "nr_e": 1,
+        "ns_n": 40,
+        "ns_e": 40,
+        "ni_n": 40,
+        "ni_e": 40,
         "device": "cuda"
     },
     "optimizer": "adam",
@@ -24,7 +24,7 @@
             0.8
         ]
     },
-    "num_epochs": 1000,
+    "num_epochs": 5,
     "batch_size": 256,
     "seed": 0
 }

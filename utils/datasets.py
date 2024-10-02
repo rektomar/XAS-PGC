@@ -140,9 +140,9 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
-    download = False
-    dataset = 'qm9'
-    order = 'mc'
+    download = True
+    dataset = 'zinc250k'
+    order = 'rand'
 
     if download:
         if dataset == 'qm9':
