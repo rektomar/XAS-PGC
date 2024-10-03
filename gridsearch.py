@@ -10,7 +10,6 @@ from utils.datasets import MOLECULAR_DATASETS, load_dataset
 from utils.train import train, evaluate, dict2str, flatten_dict
 from utils.evaluate import count_parameters
 
-from models import graphspn_prel
 from models import molspn_zero
 
 MODELS = {
