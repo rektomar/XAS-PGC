@@ -1,0 +1,29 @@
+{
+    "dataset": "zinc250k",
+    "model": "molspn_band_sort",
+    "model_hyperpars": {
+        "nc": 100,
+        "nd_n": 38,
+        "nk_n": 10,
+        "nk_e": 4,
+        "nl_n": 4,
+        "nr_n": 1,
+        "ns_n": 40,
+        "ns_e": 40,
+        "ni_n": 40,
+        "ni_e": 40,
+        "num_pieces": [3, 9],
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hyperpars": {
+        "lr": 0.05,
+        "betas": [
+            0.91,
+            0.8
+        ]
+    },
+    "num_epochs": 1000,
+    "batch_size": 256,
+    "seed": 0
+}

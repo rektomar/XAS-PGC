@@ -15,7 +15,3 @@ train.pdf
 train.tex
 
 utils/graph_features_molecular.py
-
-models/molspn_poon.py
-config/qm9/molspn_poon_sort.json
-config/zinc250k/molspn_poon_sort.json
