@@ -29,8 +29,8 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'zinc250k'
-    # order = 'canonical'
-    order = 'rand'
+    order = 'canonical'
+    # order = 'rand'
     # order = 'mc'
 
     names = [
@@ -38,23 +38,9 @@ if __name__ == '__main__':
         # 'molspn_band_sort',
 
         # order = 'canonical'
-        # 'molspn_tran_sort',
-
-        # 'molspn_zero_sort',
-        'molspn_perm_sort',
+        'molspn_zero_sort',
         # 'molspn_marg_sort',
         # 'molspn_none_sort',
-        # 'molspn_norm_sort',
-        # 'molspn_poon_sort',
-        # 'molspn_vaef_sort',
-
-        # need maintanence
-        # 'molspn_ffnn_sort',
-        # 'molspn_conv_sort',
-        # 'molspn_flow_sort',
-        # 'molspn_vaet_sort',
-        # 'moflow_sort',
-        # 'graphspn_zero_sort'
     ]
 
     for name in names:

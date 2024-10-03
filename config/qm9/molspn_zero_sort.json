@@ -16,7 +16,7 @@
         "ni_e": 40,
         "dc_n": 0.6,
         "dc_e": 0.6,
-        "regime": "cat",
+        "regime": "deq",
         "device": "cuda"
     },
     "optimizer": "adam",

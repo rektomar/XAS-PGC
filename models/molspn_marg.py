@@ -72,8 +72,8 @@ class MolSPNMargCore(nn.Module):
         n = m_nodes.sum(dim=1) - 1
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
 
-        # self.network_nodes.set_marginalization_mask(m_nodes)
-        # self.network_edges.set_marginalization_mask(m_edges)
+        self.network_nodes.set_marginalization_mask(m_nodes)
+        self.network_edges.set_marginalization_mask(m_edges)
 
         return dist_n.log_prob(n) + self._forward(x, a)
 
@@ -81,15 +81,7 @@ class MolSPNMargCore(nn.Module):
         return self(x, a).mean()
 
     def sample(self, num_samples):
-        # if num_samples > 200:
-        #     num_samples = 200
-        # x = torch.zeros(num_samples, self.nd_nodes,                device=self.device)
-        # l = torch.zeros(num_samples, self.nd_edges,                device=self.device)
-        a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, device=self.device)
-
-        # x += self.nk_nodes - 1
-        # l += self.nk_edges - 1
-        a += self.nk_edges - 1
+        a = torch.full((num_samples, self.nd_nodes, self.nd_nodes), self.nk_edges - 1, dtype=torch.float, device=self.device)
 
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)

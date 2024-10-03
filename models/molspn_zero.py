@@ -49,8 +49,8 @@ class MolSPNZeroCore(nn.Module):
         elif regime == 'deq':
             ef_dist_n = ExponentialFamilyArray.NormalArray
             ef_dist_e = ExponentialFamilyArray.NormalArray
-            ef_args_n = {'min_var': 1e-3, 'max_var': 1e-1}
-            ef_args_e = {'min_var': 1e-3, 'max_var': 1e-1}
+            ef_args_n = {'min_var': 1e-1, 'max_var': 1e-0}
+            ef_args_e = {'min_var': 1e-1, 'max_var': 1e-0}
             num_dim_n = nk_n
             num_dim_e = nk_e
             self.dc_n = dc_n
@@ -90,6 +90,7 @@ class MolSPNZeroCore(nn.Module):
         pass
 
     def forward(self, x, a):
+        m_nodes = (x != self.nk_nodes-1)
         if   self.regime == 'cat' or self.regime == 'bin':
             _x, _a = x, a
         elif self.regime == 'deq':
@@ -98,7 +99,7 @@ class MolSPNZeroCore(nn.Module):
             _a = a + self.dc_e*torch.rand(a.size(), device=self.device)
         else:
             os.error('Unknown regime')
-        return self._forward(_x, _a)
+        return self._forward(_x, _a, m_nodes)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
@@ -134,27 +135,38 @@ class MolSPNZeroSort(MolSPNZeroCore):
 
         super().__init__(nc, nd_n, nd_e, nk_n, nk_e, ns_n, ns_e, ni_n, ni_e, graph_nodes, graph_edges, device, regime, dc_n, dc_e)
 
-        self.logits_w = nn.Parameter(torch.ones(1, nc, device=self.device), requires_grad=True)
-        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=self.device), diagonal=-1)
+        self.logits_n = nn.Parameter(torch.randn( nd_n, device=device), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.randn(1, nc, device=device), requires_grad=True)
+        self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=device), diagonal=-1)
 
-    def _forward(self, x, a):
+    def _forward(self, x, a, m_nodes):
+        n = m_nodes.sum(dim=1) - 1
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
+
         ll_nodes = self.network_nodes(x)
-        
+
         if   self.regime == 'cat' or self.regime == 'bin':
             ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges))
         elif self.regime == 'deq':
-            ll_edges = self.network_edges(a[:, self.m, :].view(-1, self.nd_edges, self.nk_edges))
+            ll_edges = self.network_edges(a[:, self.m].view(-1, self.nd_edges, self.nk_edges))
         else:
             os.error('Unknown regime')
 
-        return torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
+        return dist_n.log_prob(n) + torch.logsumexp(ll_nodes + ll_edges + torch.log_softmax(self.logits_w, dim=1), dim=1)
 
     def sample(self, num_samples):
+        dist_n = torch.distributions.Categorical(logits=self.logits_n)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
+        samp_n = dist_n.sample((num_samples, ))
         samp_w = dist_w.sample((num_samples, )).squeeze()
+
+        m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
+        m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
 
         x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
         l = self.network_edges.sample(num_samples, class_idxs=samp_w)
+        x[~m_nodes] = self.nk_nodes - 1
+        l[~m_edges] = self.nk_edges - 1
 
         if   self.regime == 'cat' or self.regime == 'bin':
             a = torch.full((num_samples, self.nd_nodes, self.nd_nodes), self.nk_edges - 1, dtype=torch.float, device=self.device)
@@ -162,7 +174,7 @@ class MolSPNZeroSort(MolSPNZeroCore):
             a.transpose(1, 2)[:, self.m] = l
         elif self.regime == 'deq':
             a = torch.zeros(num_samples, self.nd_nodes, self.nd_nodes, self.nk_edges, device=self.device)
-            a[:, self.m, :] = l
+            a[:, self.m] = l
             x, a = ohe2cat(x, a)
         else:
             os.error('Unknown regime')
