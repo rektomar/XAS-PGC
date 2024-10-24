@@ -16,7 +16,9 @@ IGNORED_HYPERPARS = [
     'optimizer',
     'af_e',
     'af_e',
-    'max_atoms'
+    'max_atoms',
+    'tree_x',
+    'tree_a'
 ]
 
 

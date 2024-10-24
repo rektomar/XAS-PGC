@@ -231,7 +231,7 @@ class EinsumNetwork(torch.nn.Module):
                 if x is not None:
                     marg_mask = layer.get_marginalization_mask()
                     marg_mask = torch.squeeze(marg_mask, (2, 3))
-                    samples[~marg_mask] = x[~marg_mask]
+                    samples[marg_mask] = x[marg_mask]
 
                 return samples
 

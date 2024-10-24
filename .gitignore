@@ -14,4 +14,10 @@ qm9.tab
 train.pdf
 train.tex
 
+hclt
+models/molspn_hclt.py
+config/zinc250k/molspn_hclt_sort.json
+config/zinc250k/molspn_mclt_sort.json
+config/qm9/molspn_hclt_sort.json
+
 utils/graph_features_molecular.py
