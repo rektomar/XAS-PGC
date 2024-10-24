@@ -76,9 +76,9 @@ def filter_molecules(smls, patt_sml):
     fsmls = list(filter(f, smls))
     return fsmls
 
-def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, num_samples, canonical=True):
+def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, num_samples, batch_size=256, order='canonical'):
     print(f'Evaluating "{patt_sml}" pattern on {dataset_name} dataset')
-    loader_trn, _ = load_dataset(dataset_name, 256, split=[0.8, 0.2], canonical=canonical)
+    loader_trn, _ = load_dataset(dataset_name, batch_size, split=[0.8, 0.2], order=order)
     train_smls = [x['s'] for x in loader_trn.dataset]
 
     xx, aa, submol_size = create_observed_mol(patt_sml, max_atoms, atom_list)

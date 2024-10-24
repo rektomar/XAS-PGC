@@ -92,6 +92,24 @@ class MolSPNZeroFeatCore(nn.Module):
     def _forward(self, x, a, m_nodes):
         pass
 
+    def _reshape_edges(self, a: torch.Tensor) -> torch.Tensor:
+        if   self.regime == 'cat' or self.regime == 'bin':
+            _a = a[:, self.m].view(-1, self.nd_edges)
+        elif self.regime == 'deq':
+            _a = a[:, self.m, :].view(-1, self.nd_edges, self.nk_edges)
+        else:
+            os.error('Unknown regime')
+        return _a
+    
+    def _reshape_edge_mask(self, ma: torch.Tensor) -> torch.Tensor:
+        if   self.regime == 'cat' or self.regime == 'bin':
+            _ma = ma[:, self.m].view(-1, self.nd_edges)
+        elif self.regime == 'deq':
+            _ma = ma[:, self.m, :].view(-1, self.nd_edges, 1).expand(-1, -1,self.nk_edges)
+        else:
+            os.error('Unknown regime')
+        return _ma
+
     def prepare_input(self, x: torch.Tensor, a: torch.Tensor):
         if   self.regime == 'cat' or self.regime == 'bin':
             _x, _a = x, a
@@ -102,9 +120,13 @@ class MolSPNZeroFeatCore(nn.Module):
         else:
             os.error('Unknown regime')
         
+        _a = self._reshape_edges(_a) 
         return _x, _a
 
     def forward(self, x: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+        self.network_nodes.set_marginalization_mask(None)
+        self.network_edges.set_marginalization_mask(None)
+
         m_nodes = (x != self.nk_nodes-1)
         _x, _a = self.prepare_input(x, a)
         ll_card, ll_nodes, ll_edges, logits_w = self._forward(_x, _a, m_nodes)
@@ -115,6 +137,10 @@ class MolSPNZeroFeatCore(nn.Module):
 
     @abstractmethod
     def sample(self, num_samples: int):
+        pass
+
+    @abstractmethod
+    def sample_conditional(self, x: torch.Tensor, a: torch.Tensor, m_x: torch.Tensor, m_a: torch.Tensor, num_samples: int):
         pass
 
 
@@ -148,37 +174,29 @@ class MolSPNZeroSortFeat(MolSPNZeroFeatCore):
         self.logits_w = nn.Parameter(torch.randn(1, nc, device=device), requires_grad=True)
         self.m = torch.tril(torch.ones(self.nd_nodes, self.nd_nodes, dtype=torch.bool, device=device), diagonal=-1)
 
-    def _prepare_edges(self, a: torch.Tensor) -> torch.Tensor:
-        if   self.regime == 'cat' or self.regime == 'bin':
-            _a = a[:, self.m].view(-1, self.nd_edges)
-        elif self.regime == 'deq':
-            _a = a[:, self.m, :].view(-1, self.nd_edges, self.nk_edges)
-        else:
-            os.error('Unknown regime')
-        return _a
-
     def _forward(self, x: torch.Tensor, a: torch.Tensor, m_nodes: torch.Tensor):
         n = m_nodes.sum(dim=1) - 1
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
         ll_card = dist_n.log_prob(n)
 
-        _a = self._prepare_edges(a)
         ll_nodes = self.network_nodes(x)
-        ll_edges = self.network_edges(_a)
+        ll_edges = self.network_edges(a)
 
         return ll_card, ll_nodes, ll_edges, torch.log_softmax(self.logits_w, dim=1)
-
-    def sample(self, num_samples: int):
-        dist_n = torch.distributions.Categorical(logits=self.logits_n)
-        dist_w = torch.distributions.Categorical(logits=self.logits_w)
+    
+    def _sample(self, logits_w: torch.Tensor, logits_n: torch.Tensor, num_samples: int, xo=None, ao=None):
+        dist_n = torch.distributions.Categorical(logits=logits_n)
+        dist_w = torch.distributions.Categorical(logits=logits_w)
         samp_n = dist_n.sample((num_samples, ))
-        samp_w = dist_w.sample((num_samples, )).squeeze()
+        samp_w = dist_w.sample((num_samples, )).squeeze(-1)
 
         m_nodes = torch.arange(self.nd_nodes, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
         m_edges = (m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1))[:, self.m].view(-1, self.nd_edges)
 
-        x = self.network_nodes.sample(num_samples, class_idxs=samp_w)
-        l = self.network_edges.sample(num_samples, class_idxs=samp_w)
+        # print('masks', m_nodes.shape, m_edges.shape)
+        x = self.network_nodes.sample(num_samples, class_idxs=samp_w, x=xo)
+        l = self.network_edges.sample(num_samples, class_idxs=samp_w, x=ao)
+        # print('output_samples', num_samples, x.shape, l.shape)
         x[~m_nodes] = self.nk_nodes - 1
         l[~m_edges] = self.nk_edges - 1
 
@@ -193,7 +211,38 @@ class MolSPNZeroSortFeat(MolSPNZeroFeatCore):
         else:
             os.error('Unknown regime')
 
+        return x, a
+
+    def sample(self, num_samples: int):
+        self.network_nodes.set_marginalization_mask(None)
+        self.network_edges.set_marginalization_mask(None)
+        x, a = self._sample(self.logits_w, self.logits_n, num_samples)
         return x.cpu(), a.cpu()
+     
+    @torch.no_grad
+    def sample_conditional(self, x: torch.Tensor, a: torch.Tensor, mx: torch.Tensor, ma: torch.Tensor, num_samples: int):
+        # for single observation only
+        assert (len(x)==1) and (len(a)==1), "Cond. sampling is implemented only for single input observation."
+        assert mx.sum() < self.nd_nodes, "Chosen subgraph is too big."
+        _mx, _ma = mx, self._reshape_edge_mask(ma)
+
+        # calculate adjusted mixture weights
+        m_nodes = (x != self.nk_nodes-1)
+        self.network_nodes.set_marginalization_mask(_mx)
+        self.network_edges.set_marginalization_mask(_ma)
+        _x, _a = self.prepare_input(x, a)
+        _, ll_nodes, ll_edges, logits_w = self._forward(_x, _a, m_nodes)
+        logits_w = logits_w + ll_nodes + ll_edges
+
+        logits_n = self.logits_n.masked_fill(_mx.squeeze(), -torch.inf)
+
+        xo = _x.float().expand(num_samples, -1)
+        ao = _a.float().expand(num_samples, -1)
+        self.network_nodes.set_marginalization_mask(_mx.expand(num_samples, -1))
+        self.network_edges.set_marginalization_mask(_ma.expand(num_samples, -1))
+        xc, ac = self._sample(logits_w, logits_n, num_samples, xo=xo, ao=ao)
+        return xc.cpu(), ac.cpu()   
+
 
 MODELS = {
     'molspn_zero_sort_feat': MolSPNZeroSortFeat,
