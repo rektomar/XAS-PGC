@@ -6,6 +6,74 @@ from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
 from models.utils import ohe2cat, cat2ohe
 
+from torch.distributions import Normal, Categorical, MixtureSameFamily
+from torch.nn.functional import softplus
+
+
+class Normal_(nn.Module):
+
+    def __init__(self, nc: int, eps: float=1e-6) -> None:
+        super().__init__()
+        self.eps = eps
+        self.m = nn.Parameter(torch.randn(nc))
+        self.s = nn.Parameter(torch.randn(nc))
+
+    @property
+    def distribution(self):
+        return Normal(self.m, softplus(self.s)+self.eps)
+    
+    def logpdf(self, y):
+        return self.distribution.log_prob(y)
+    
+    def forward(self, y):
+        return self.logpdf(y)
+    
+    def sample(self, n_samples: int):
+        return self.distribution.sample((n_samples,))
+    
+
+class GMM_(nn.Module):
+
+    def __init__(self, nc: int, num_comps: int, eps: float=1e-6) -> None:
+        super().__init__()
+        self.eps = eps
+        self.m = nn.Parameter(torch.randn(nc, num_comps))
+        self.s = nn.Parameter(torch.randn(nc, num_comps))
+        self.w = nn.Parameter(torch.randn(num_comps))
+
+    @property
+    def distribution(self):
+        mix = Categorical(logits=self.w)
+        comp = Normal(self.m, softplus(self.s)+self.eps)
+        return MixtureSameFamily(mix, comp)
+    
+    def logpdf(self, y):
+        return self.distribution.log_prob(y)
+    
+    def forward(self, y):
+        return self.logpdf(y)
+    
+    def sample(self, n_samples: int):
+        return self.distribution.sample((n_samples,))
+
+
+class ExtraFeatures(nn.Module):
+
+    def __init__(self, nc: int):
+        super().__init__()
+
+        # nd = 1
+        # num_comps = 4
+        # self.distribution = GMMF(nc, num_comps)
+
+        self.distribution = Normal_(nc)
+
+    def forward(self, y):
+        return self.distribution.logpdf(y)
+        
+    def sample(self, n_samples):
+        return self.distribution.sample(n_samples)
+
 
 class MolSPNZeroFeatCore(nn.Module):
     def __init__(self,
@@ -82,6 +150,8 @@ class MolSPNZeroFeatCore(nn.Module):
         self.network_nodes.initialize()
         self.network_edges.initialize()
 
+        self.network_features = ExtraFeatures(nc)
+
         self.to(device)
 
     @property
@@ -123,17 +193,18 @@ class MolSPNZeroFeatCore(nn.Module):
         _a = self._reshape_edges(_a) 
         return _x, _a
 
-    def forward(self, x: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, a: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         self.network_nodes.set_marginalization_mask(None)
         self.network_edges.set_marginalization_mask(None)
 
         m_nodes = (x != self.nk_nodes-1)
         _x, _a = self.prepare_input(x, a)
         ll_card, ll_nodes, ll_edges, logits_w = self._forward(_x, _a, m_nodes)
-        return ll_card + torch.logsumexp(ll_nodes + ll_edges + logits_w, dim=1)
+        ll_feat = self.network_features(y)
+        return ll_card + torch.logsumexp(ll_nodes + ll_edges + ll_feat + logits_w, dim=1)
 
-    def logpdf(self, x: torch.Tensor, a: torch.Tensor) -> torch.Tensor:
-        return self(x, a).mean()
+    def logpdf(self, x: torch.Tensor, a: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        return self(x, a, y).mean()
 
     @abstractmethod
     def sample(self, num_samples: int):
@@ -183,6 +254,49 @@ class MolSPNZeroSortFeat(MolSPNZeroFeatCore):
         ll_edges = self.network_edges(a)
 
         return ll_card, ll_nodes, ll_edges, torch.log_softmax(self.logits_w, dim=1)
+    
+    def logpdf_features(self, y):
+        ll_features = self.network_features(y)
+        return torch.logsumexp(ll_features + torch.log_softmax(self.logits_w, dim=1), dim=1)
+    
+    def predict_features(self, x, a):
+        # returns E[y|G], where y are additional features/properties 
+        # and G is graph induced by (x, a)
+        x = x.to(self.device)
+        a = a.to(self.device)
+
+        self.network_nodes.set_marginalization_mask(None)
+        self.network_edges.set_marginalization_mask(None)
+        m_nodes = (x != self.nk_nodes-1)
+        _x, _a = self.prepare_input(x, a)
+        _, ll_nodes, ll_edges, logits_w = self._forward(_x, _a, m_nodes)
+
+        logits_w = ll_nodes + ll_edges + logits_w
+        prior = Categorical(logits=logits_w)
+        comps = self.network_features.distribution.distribution
+
+        distr = MixtureSameFamily(prior, comps)
+        return distr.mean
+    
+    def predict_features_marginal(self, x, a, mx, ma):
+        # returns E[y|G_o], where y are additional features/properties 
+        # and G_o is subgraph of G = (x, a) induced by corresponing masks (mx, ma)
+        x, a = x.to(self.device), a.to(self.device)
+        mx, ma = mx.to(self.device), ma.to(self.device)
+
+        _mx, _ma = mx, self._reshape_edge_mask(ma)
+        self.network_nodes.set_marginalization_mask(_mx)
+        self.network_edges.set_marginalization_mask(_ma)
+        m_nodes = (x != self.nk_nodes-1)
+        _x, _a = self.prepare_input(x, a)
+        _, ll_nodes, ll_edges, logits_w = self._forward(_x, _a, m_nodes)
+
+        logits_w = ll_nodes + ll_edges + logits_w
+        prior = Categorical(logits=logits_w)
+        comps = self.network_features.distribution.distribution
+
+        distr = MixtureSameFamily(prior, comps)
+        return distr.mean
     
     def _sample(self, logits_w: torch.Tensor, logits_n: torch.Tensor, num_samples: int, xo=None, ao=None):
         dist_n = torch.distributions.Categorical(logits=logits_n)
@@ -241,7 +355,15 @@ class MolSPNZeroSortFeat(MolSPNZeroFeatCore):
         self.network_nodes.set_marginalization_mask(_mx.expand(num_samples, -1))
         self.network_edges.set_marginalization_mask(_ma.expand(num_samples, -1))
         xc, ac = self._sample(logits_w, logits_n, num_samples, xo=xo, ao=ao)
-        return xc.cpu(), ac.cpu()   
+        return xc.cpu(), ac.cpu()
+
+    def sample_given_features(self, y: torch.Tensor, num_samples: int):
+        # G ~ p(G | y), G = (X, A)   
+        self.network_nodes.set_marginalization_mask(None)
+        self.network_edges.set_marginalization_mask(None)
+        logits_w = torch.log_softmax(self.logits_w, -1) + self.network_features(y)
+        x, a = self._sample(logits_w, self.logits_n, num_samples)
+        return x.cpu(), a.cpu()
 
 
 MODELS = {
