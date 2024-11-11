@@ -16,15 +16,16 @@ cd MolSPN
 
 Set up the environment.
 ```
-conda create --name molspn python==3.8.5
+conda create --name molspn python=3.10
 
 source activate molspn
 
-pip install torch==2.4.0 --index-url https://download.pytorch.org/whl/cu121
-pip install rdkit==2022.9.5
-pip install tqdm==4.65.0
-pip install pandas==2.0.3
+pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cu124
+pip install rdkit==2024.3.6
+pip install tqdm==4.67.0
+pip install pandas==2.2.3
 pip install pylatex==1.4.2
+pip install scipy==1.14.1
 ```
 
 ## 2. Preprocess

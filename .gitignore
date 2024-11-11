@@ -16,8 +16,10 @@ train.tex
 
 hclt
 models/molspn_hclt.py
+models/molspn_marg.py
 config/zinc250k/molspn_hclt_sort.json
 config/zinc250k/molspn_mclt_sort.json
 config/qm9/molspn_hclt_sort.json
+config/zinc250k/molspn_marg_sort.json
 
 utils/graph_features_molecular.py
