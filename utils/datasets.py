@@ -9,10 +9,10 @@ from tqdm import tqdm
 from rdkit import RDLogger
 
 from utils.molecular import mol2g, g2mol
-from utils.graphs import permute_graph, flatten, bandwidth, unflatten
+from utils.graphs import permute_graph, flatten_tril
 from utils.evaluate import evaluate_molecules
 from scipy.sparse import csr_matrix
-from scipy.sparse.csgraph import reverse_cuthill_mckee
+from scipy.sparse.csgraph import breadth_first_order, depth_first_order, reverse_cuthill_mckee
 
 MOLECULAR_DATASETS = {
     'qm9': {
@@ -66,40 +66,37 @@ def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical
     smls_list = list(input_df[smile_col])
     prop_list = list(input_df[prop_name])
     data_list = []
-    max_bandwidth = 0
 
     for smls, prop in tqdm(zip(smls_list, prop_list)):
         mol = Chem.MolFromSmiles(smls)
         Chem.Kekulize(mol)
         n = mol.GetNumAtoms()
-        x, a = mol2g(mol, max_atom, atom_list)
         y = torch.tensor([float(prop)])
+        x, a = mol2g(mol, max_atom, atom_list)
+
+        match order:
+            case 'canonical':
+                p = list(range(max_atom))
+            case 'bft':
+                p = breadth_first_order(csr_matrix((a != 3).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range(len(p), max_atom))
+            case 'dft':
+                p = depth_first_order(csr_matrix((a != 3).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range(len(p), max_atom))
+            case 'rcm':
+                p = reverse_cuthill_mckee(csr_matrix((a != 3).to(torch.int8))).tolist()
+            case 'rand':
+                p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
+            case _:
+                os.error('Unknown order')
+
+        x, a = permute_graph(x, a, p)
 
         if order == 'canonical':
-            s = Chem.MolToSmiles(mol, kekuleSmiles=True)
-            data_list.append({'x': x, 'a': a, 'n': n, 's': s, 'y': y})
-
-        elif order == 'mc':
-            s = Chem.MolToSmiles(mol, kekuleSmiles=True)
-            p = reverse_cuthill_mckee(csr_matrix((a != 3).to(torch.int8)))
-            x, a = permute_graph(x, a, p.copy())
-            b = bandwidth((a != 3).to(torch.int8), n)
-            a = flatten(a, b)
-            if b > max_bandwidth:
-                max_bandwidth = b
-            data_list.append({'x': x, 'a': a, 'b': b, 'n': n, 's': s, 'y': y})
-
-        elif order == 'rand':
-            x, a = permute_graph(x, a, torch.cat((torch.randperm(n), torch.arange(n, max_atom))))
-            s = Chem.MolToSmiles(g2mol(x, a, atom_list), kekuleSmiles=True, canonical=False)
-            data_list.append({'x': x, 'a': a, 'n': n, 's': s, 'y': y})
-
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=True)
         else:
-            os.error('Unknown order')
+            mol = g2mol(x, a, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
 
-    if order == 'mc':
-        for data in data_list:
-            data['a'] = torch.nn.functional.pad(data['a'], (0, max_bandwidth - data['b']), 'constant', 3)
+        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, 'y': y})
 
     torch.save(data_list, f'{path}_{order}.pt')
 
@@ -141,16 +138,17 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'zinc250k'
+    dataset = 'qm9'
     order = 'rand'
 
     if download:
-        if dataset == 'qm9':
-            download_qm9(order=order)
-        elif dataset == 'zinc250k':
-            download_zinc250k(order=order)
-        else:
-            os.error('Unsupported dataset.')
+        match dataset:
+            case 'qm9':
+                download_qm9(order=order)
+            case 'zinc250k':
+                download_zinc250k(order=order)
+            case _:
+                os.error('Unsupported dataset.')
 
     loader_trn, loader_val = load_dataset(dataset, 100, split=[0.99, 0.01], order=order)
 
@@ -161,13 +159,7 @@ if __name__ == '__main__':
     x = torch.stack(x)
     a = torch.stack(a)
 
-    if order == 'mc':
-        r = torch.zeros(x.shape[0], x.shape[1], x.shape[1])
-        for i in range(x.shape[0]):
-            r[i] = unflatten(a[i])
-        a = r
-
-    print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
+    # print(evaluate_molecules(x, a, s, MOLECULAR_DATASETS[dataset]['atom_list'], metrics_only=True, canonical=True))
 
     # loader_trn, loader_val = load_dataset(dataset, 100, split=[0.8, 0.2], canonical=False)
 

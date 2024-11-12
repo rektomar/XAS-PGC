@@ -23,3 +23,7 @@ config/qm9/molspn_hclt_sort.json
 config/zinc250k/molspn_marg_sort.json
 
 utils/graph_features_molecular.py
+
+adjacency_plot.py
+adjacency_plot.tex
+adjacency_plot.pdf
