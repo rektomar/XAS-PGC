@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from utils.graphs import unflatten
+from utils.graphs import unflatt_band
 
 
 class MolSPNBandCore(nn.Module):
@@ -106,7 +106,7 @@ class MolSPNBandCore(nn.Module):
 
         l = l.view(-1, self.nd_nodes, self.bw)
         for i in range(num_samples):
-            a[i] = unflatten(l[i])
+            a[i] = unflatt_band(l[i])
 
         m_edges = m_nodes.unsqueeze(2) * m_nodes.unsqueeze(1)
         a[~m_edges] = self.nk_edges - 1

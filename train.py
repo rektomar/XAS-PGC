@@ -56,17 +56,6 @@ if __name__ == '__main__':
         loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.8, 0.2], order=order)
         smiles_trn = [x['s'] for x in loader_trn.dataset]
 
-        x = torch.stack([e['x'] for e in loader_trn.dataset])
-        a = torch.stack([e['a'] for e in loader_trn.dataset])
-
-        nd_n = MOLECULAR_DATASETS[dataset]['max_atoms']
-        nd_e = nd_n * (nd_n - 1) // 2
-        m = torch.tril(torch.ones(nd_n, nd_n, dtype=torch.bool), diagonal=-1)
-        l = a[:, m].view(-1, nd_e)
-
-        # if order == 'mc':
-        #     hyperpars['model_hyperpars']['bw'] = loader_trn.dataset[0]['a'].size(-1)
-
         model = MODELS[name](**hyperpars['model_hyperpars'])
         print(dataset)
         print(json.dumps(hyperpars, indent=4))

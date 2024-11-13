@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from timeit import default_timer
 from rdkit.Chem.Draw import MolsToGridImage
+from utils.graphs import unflatt_tril
 
 from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_parameters
 
@@ -35,8 +36,9 @@ def dict2str(d):
 def run_epoch(model, loader, optimizer=[], verbose=False):
     nll_sum = 0.
     for b in tqdm(loader, leave=False, disable=verbose):
-        x = b['x'].to(model.device) # (256,9,5)
-        a = b['a'].to(model.device) # (256,9,9,4)
+        x = b['x'].to(model.device)
+        a = b['a'].to(model.device)
+        a = unflatt_tril(a, x.size(1))
         nll = -model.logpdf(x, a)
         nll_sum += nll
         if optimizer:
@@ -49,8 +51,8 @@ def run_epoch(model, loader, optimizer=[], verbose=False):
 # def run_epoch(model, loader, optimizer=[], verbose=False):
 #     nll_sum = 0.
 #     for b in tqdm(loader, leave=False, disable=verbose):
-#         x = b['x'].to(model.device) # (256,9,5)
-#         a = b['a'].to(model.device) # (256,9,9,4)
+#         x = b['x'].to(model.device)
+#         a = b['a'].to(model.device)
 #         def closure():
 #             optimizer.zero_grad()
 #             nll = -model.logpdf(x, a)

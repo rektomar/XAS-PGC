@@ -1,10 +1,5 @@
 __pycache__
-data/qm9_rand.pt
-data/qm9_canonical.pt
-data/qm9_mc.pt
-data/zinc250k_rand.pt
-data/zinc250k_canonical.pt
-data/zinc250k_mc.pt
+data
 results
 gridsearch.log
 
