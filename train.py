@@ -31,15 +31,9 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
-    order = 'canonical'
-    # order = 'rand'
-    # order = 'mc'
+    order = 'rand'
 
     names = [
-        # order = 'mc'
-        # 'molspn_band_sort',
-
-        # order = 'canonical'
         'molspn_zero_sort',
         # 'molspn_marg_sort',
         # 'molspn_none_sort',
@@ -63,8 +57,8 @@ if __name__ == '__main__':
         print(f'The number of parameters is {count_parameters(model)}.')
         print(order)
 
-        path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR)
+        path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR, canonical=(order=='canonical'))
         model = torch.load(path, weights_only=False)
-        metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False, canonical=True)
+        metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False, canonical=(order=='canonical'))
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))

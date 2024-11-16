@@ -74,7 +74,8 @@ def train(
         checkpoint_dir,
         num_nonimproving_epochs=2000,
         verbose=False,
-        metric_type='score'
+        metric_type='score',
+        canonical=True,
     ):
     # optimizer = optim.LBFGS(model.parameters(), **hyperpars['optimizer_hyperpars'], history_size=100, max_iter=5)
     optimizer = optim.Adam(model.parameters(), **hyperpars['optimizer_hyperpars'])
@@ -95,7 +96,7 @@ def train(
         model.eval()
 
         x_sam, a_sam = model.sample(1000)
-        metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True)
+        metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True, canonical=canonical)
         metrics_str = f'v={metrics["valid"]:.2f}, u={metrics["unique"]:.2f}, n={metrics["novel"]:.2f}, s={metrics["score"]:.2f}'
 
         if metric_type in METRIC_TYPES:
