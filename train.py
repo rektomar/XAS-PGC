@@ -31,7 +31,6 @@ if __name__ == '__main__':
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
-    order = 'rand'
 
     names = [
         'molspn_zero_sort',
@@ -45,20 +44,19 @@ if __name__ == '__main__':
         with open(f'config/{dataset}/{name}.json', 'r') as f:
             hyperpars = json.load(f)
         hyperpars['atom_list'] = MOLECULAR_DATASETS[dataset]['atom_list']
-        hyperpars['max_atoms'] = MOLECULAR_DATASETS[dataset]['max_atoms']
 
-        loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.8, 0.2], order=order)
+        loader_trn, loader_val = load_dataset(hyperpars['dataset'], hyperpars['batch_size'], split=[0.8, 0.2], order=hyperpars['order'])
         smiles_trn = [x['s'] for x in loader_trn.dataset]
 
-        model = MODELS[name](**hyperpars['model_hyperpars'])
+        model = MODELS[name](loader_trn, **hyperpars['model_hyperpars'])
         print(dataset)
         print(json.dumps(hyperpars, indent=4))
         print(model)
         print(f'The number of parameters is {count_parameters(model)}.')
-        print(order)
+        print(hyperpars['order'])
 
-        path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR, canonical=(order=='canonical'))
+        path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR, canonical=(hyperpars['order']=='canonical'))
         model = torch.load(path, weights_only=False)
-        metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False, canonical=(order=='canonical'))
+        metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False, canonical=(hyperpars['order']=='canonical'))
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))

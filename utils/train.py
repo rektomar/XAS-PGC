@@ -12,14 +12,7 @@ from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_para
 
 IGNORED_HYPERPARS = [
     'atom_list',
-    'mask_row_stride_list',
-    'mask_row_size_list',
-    'optimizer',
-    'af_e',
-    'af_e',
-    'max_atoms',
-    'tree_x',
-    'tree_a'
+    'optimizer'
 ]
 
 
@@ -155,7 +148,7 @@ def evaluate(
     time_sam = default_timer() - start
 
     start = default_timer()
-    x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], hyperpars['max_atoms'], canonical)
+    x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], x_sam.size(1), canonical)
     time_res = default_timer() - start
 
     mols_res_f, _, metrics_res_f = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], correct_mols=False, affix='res_f_', canonical=canonical)

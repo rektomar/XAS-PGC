@@ -1,11 +1,9 @@
 {
     "dataset": "qm9",
+    "order": "bft",
     "model": "molspn_zero_sort",
     "model_hyperpars": {
         "nc": 100,
-        "nd_n": 9,
-        "nk_n": 5,
-        "nk_e": 4,
         "nl_n": 3,
         "nl_e": 3,
         "nr_n": 1,
@@ -14,9 +12,6 @@
         "ns_e": 40,
         "ni_n": 40,
         "ni_e": 40,
-        "dc_n": 0.6,
-        "dc_e": 0.6,
-        "regime": "cat",
         "device": "cuda"
     },
     "optimizer": "adam",

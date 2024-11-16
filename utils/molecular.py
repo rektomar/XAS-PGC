@@ -73,9 +73,7 @@ def valency(mol):
         Chem.SanitizeMol(mol, sanitizeOps=Chem.SanitizeFlags.SANITIZE_PROPERTIES)
         return True, None
     except ValueError as error:
-        error = str(error)
-        i = error.find('#')
-        valence = list(map(int, re.findall(r'\d+', error[i:])))
+        valence = list(map(int, re.findall(r'\d+', str(error))))
         return False, valence
 
 def correct(mol):
@@ -92,7 +90,7 @@ def correct(mol):
             if len(queue) > 0:
                 start = queue[0][2]
                 end = queue[0][3]
-                bond_index = queue[0][1]
+                bond_index = queue[0][1] - 1
                 mol.RemoveBond(start, end)
                 if bond_index > 0:
                     mol.AddBond(start, end, BOND_DECODER[bond_index])
