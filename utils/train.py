@@ -25,6 +25,18 @@ def flatten_dict(d, input_key=''):
 def dict2str(d):
     return '_'.join([f'{key}={value}' for key, value in d.items() if key not in IGNORED_HYPERPARS])
 
+def backend_hpars_prefix(d):
+    for key, value in d.items():
+        match key:
+            case 'bx_hpars':
+                d[key] = {'x' + str(k): v for k, v in value.items()}
+            case 'ba_hpars':
+                d[key] = {'a' + str(k): v for k, v in value.items()}
+            case _:
+                if isinstance(value, dict):
+                    backend_hpars_prefix(value)
+                else:
+                    continue
 
 def run_epoch(model, loader, optimizer=[], verbose=False):
     nll_sum = 0.
@@ -67,11 +79,10 @@ def train(
         checkpoint_dir,
         num_nonimproving_epochs=2000,
         verbose=False,
-        metric_type='score',
-        canonical=True,
+        metric_type='score'
     ):
-    # optimizer = optim.LBFGS(model.parameters(), **hyperpars['optimizer_hyperpars'], history_size=100, max_iter=5)
-    optimizer = optim.Adam(model.parameters(), **hyperpars['optimizer_hyperpars'])
+    # optimizer = optim.LBFGS(model.parameters(), **hyperpars['optimizer_hpars'], history_size=100, max_iter=5)
+    optimizer = optim.Adam(model.parameters(), **hyperpars['optimizer_hpars'])
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
 
     lookahead_counter = num_nonimproving_epochs
@@ -89,7 +100,7 @@ def train(
         model.eval()
 
         x_sam, a_sam = model.sample(1000)
-        metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True, canonical=canonical)
+        metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True, canonical=(hyperpars['order']=='canonical'))
         metrics_str = f'v={metrics["valid"]:.2f}, u={metrics["unique"]:.2f}, n={metrics["novel"]:.2f}, s={metrics["score"]:.2f}'
 
         if metric_type in METRIC_TYPES:
@@ -138,17 +149,18 @@ def evaluate(
         hyperpars,
         evaluation_dir,
         num_samples=4000,
-        compute_nll=True,
-        canonical=True
+        compute_nll=True
     ):
     model.eval()
+
+    canonical = (hyperpars['order']=='canonical')
 
     start = default_timer()
     x_sam, a_sam = model.sample(num_samples)
     time_sam = default_timer() - start
 
     start = default_timer()
-    x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], x_sam.size(1), canonical)
+    x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], x_sam.size(1), canonical=canonical)
     time_res = default_timer() - start
 
     mols_res_f, _, metrics_res_f = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], correct_mols=False, affix='res_f_', canonical=canonical)
