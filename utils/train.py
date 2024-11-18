@@ -26,17 +26,19 @@ def dict2str(d):
     return '_'.join([f'{key}={value}' for key, value in d.items() if key not in IGNORED_HYPERPARS])
 
 def backend_hpars_prefix(d):
+    o = {}
     for key, value in d.items():
         match key:
             case 'bx_hpars':
-                d[key] = {'x' + str(k): v for k, v in value.items()}
+                o[key] = {'x' + str(k): v for k, v in value.items()}
             case 'ba_hpars':
-                d[key] = {'a' + str(k): v for k, v in value.items()}
+                o[key] = {'a' + str(k): v for k, v in value.items()}
             case _:
                 if isinstance(value, dict):
-                    backend_hpars_prefix(value)
+                    o[key] = backend_hpars_prefix(value)
                 else:
-                    continue
+                    o[key] = value
+    return o
 
 def run_epoch(model, loader, optimizer=[], verbose=False):
     nll_sum = 0.
@@ -134,7 +136,7 @@ def train(
                 os.makedirs(dir)
             if best_model_path != None:
                 os.remove(best_model_path)
-            path = dir + dict2str(flatten_dict(hyperpars)) + '.pt'
+            path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
             torch.save(model, path)
             best_model_path = path
             save_model == False
@@ -191,14 +193,14 @@ def evaluate(
     dir = evaluation_dir + f'metrics/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
-    path = dir + dict2str(flatten_dict(hyperpars))
+    path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
     df = pd.DataFrame.from_dict({**flatten_dict(hyperpars), **metrics}, 'index').transpose()
     df.to_csv(path + '.csv', index=False)
 
     dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
-    path = dir + dict2str(flatten_dict(hyperpars))
+    path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
 
     img_res_f = MolsToGridImage(mols=mols_res_f[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
     img_res_t = MolsToGridImage(mols=mols_res_t[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)

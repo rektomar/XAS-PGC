@@ -1,6 +1,7 @@
 {
-    "dataset": "qm9",
+    "dataset": "zinc250k",
     "model": "zero_sort",
+    "order": "bft",
     "model_hpars": {
         "nc": 100,
         "bx": "btree",

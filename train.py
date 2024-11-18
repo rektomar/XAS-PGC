@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # torch.set_printoptions(threshold=10_000, linewidth=200)
     RDLogger.DisableLog('rdApp.*')
 
-    dataset = 'qm9'
+    dataset = 'zinc250k'
 
     names = [
         'zero_sort',
@@ -54,8 +54,6 @@ if __name__ == '__main__':
         print(model)
         print(f'The number of parameters is {count_parameters(model)}.')
         print(hyperpars['order'])
-
-        backend_hpars_prefix(hyperpars)
 
         path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR)
         model = torch.load(path, weights_only=False)
