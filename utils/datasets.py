@@ -26,9 +26,29 @@ MOLECULAR_DATASETS = {
         'max_atoms': 38,
         'max_types': 10,
         'atom_list': [0, 6, 7, 8, 9, 15, 16, 17, 35, 53]
+    },
+    'moses': {
+        'dataset': 'moses',
+        'max_atoms': 27,
+        'max_types': 8,
+        'atom_list': [0, 6, 7, 8, 9, 16, 17, 35]
+    },
+    'guacamol': {
+        'dataset': 'guacamol',
+        'max_atoms': 88,
+        'max_types': 13,
+        'atom_list': [0, 5, 6, 7, 8, 9, 14, 15, 16, 17, 34, 35, 53]
+    },
+    'polymer': {
+        'dataset': 'polymer',
+        'max_atoms': 122,           # measured on train_data
+        'max_types': 8,
+        'atom_list': [0, 6, 7, 8, 9, 14, 15, 16]
     }
 }
 
+# Moses Atoms - C:6, N:7, S:16, O:8, F:9, Cl:17, Br:35, H:1
+# Guacamol Atoms - C:6, N:7, O:8, F:9, B:5, Br:35, Cl:17, I:53, P:15, S:16, Se:34, Si:14, H:1
 
 def download_qm9(dir='data/', order='canonical'):
     if os.path.isdir(dir) != True:
@@ -40,7 +60,7 @@ def download_qm9(dir='data/', order='canonical'):
     print('Downloading and preprocessing the QM9 dataset.')
 
     urllib.request.urlretrieve(url, f'{file}.csv')
-    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['qm9']['max_atoms'], MOLECULAR_DATASETS['qm9']['atom_list'], order)
+    preprocess(file, 'smile', MOLECULAR_DATASETS['qm9']['max_atoms'], MOLECULAR_DATASETS['qm9']['atom_list'], order)
     os.remove(f'{file}.csv')
 
     print('Done.')
@@ -55,7 +75,58 @@ def download_zinc250k(dir='data/', order='canonical'):
     print('Downloading and preprocessing the Zinc250k dataset.')
 
     urllib.request.urlretrieve(url, f'{file}.csv')
-    preprocess(file, 'smile', 'penalized_logp', MOLECULAR_DATASETS['zinc250k']['max_atoms'], MOLECULAR_DATASETS['zinc250k']['atom_list'], order)
+    preprocess(file, 'smile', MOLECULAR_DATASETS['zinc250k']['max_atoms'], MOLECULAR_DATASETS['zinc250k']['atom_list'], order)
+    os.remove(f'{file}.csv')
+
+    print('Done.')
+
+def download_moses(dir='data/', order='canonical'):
+    # https://github.com/cvignac/DiGress/blob/main/src/datasets/moses_dataset.py
+    if os.path.isdir(dir) != True:
+        os.makedirs(dir)
+
+    file = f'{dir}moses'
+    train_url = 'https://media.githubusercontent.com/media/molecularsets/moses/master/data/train.csv'
+    test_url  = 'https://media.githubusercontent.com/media/molecularsets/moses/master/data/test.csv'
+    # test_url  = 'https://media.githubusercontent.com/media/molecularsets/moses/master/data/test_scaffolds.csv'
+
+    # NOTE: Downloading just train split so far.
+    urllib.request.urlretrieve(train_url, f'{file}.csv')
+    preprocess(file, 'SMILES', MOLECULAR_DATASETS['moses']['max_atoms'], MOLECULAR_DATASETS['moses']['atom_list'], order)
+    os.remove(f'{file}.csv')
+
+    print('Done.')
+
+def download_guacamol(dir='data/', order='canonical'):
+    # https://github.com/cvignac/DiGress/blob/main/src/datasets/guacamol_dataset.py
+    if os.path.isdir(dir) != True:
+        os.makedirs(dir)
+
+    file = f'{dir}guacamol'
+    train_url = 'https://figshare.com/ndownloader/files/13612760'
+    valid_url = 'https://figshare.com/ndownloader/files/13612766'
+    test_url = 'https://figshare.com/ndownloader/files/13612757'
+
+    # NOTE: Downloading just train split so far.
+    urllib.request.urlretrieve(train_url, f'{file}.csv')
+    preprocess(file, None, MOLECULAR_DATASETS['guacamol']['max_atoms'], MOLECULAR_DATASETS['guacamol']['atom_list'], order)
+    os.remove(f'{file}.csv')
+
+    print('Done.')
+
+def download_polymer(dir='data/', order='canonical'):
+    # https://github.com/wengong-jin/hgraph2graph/tree/master/data/polymers
+    if os.path.isdir(dir) != True:
+        os.makedirs(dir)
+
+    file = f'{dir}polymer'
+    train_url = 'https://raw.githubusercontent.com/wengong-jin/hgraph2graph/refs/heads/master/data/polymers/train.txt'
+    valid_url = 'https://raw.githubusercontent.com/wengong-jin/hgraph2graph/refs/heads/master/data/polymers/valid.txt'
+    test_url  = 'https://raw.githubusercontent.com/wengong-jin/hgraph2graph/refs/heads/master/data/polymers/test.txt'
+
+    # NOTE: Downloading just train split so far.
+    urllib.request.urlretrieve(train_url, f'{file}.csv')
+    preprocess(file, None, MOLECULAR_DATASETS['polymer']['max_atoms'], MOLECULAR_DATASETS['polymer']['atom_list'], order)
     os.remove(f'{file}.csv')
 
     print('Done.')
@@ -67,17 +138,25 @@ def perm_molecule(mol, p, max_atom, atom_list):
     x, a = permute_graph(x, a, p)
     return x, a, g2mol(x, a, atom_list)
 
-def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical'):
-    input_df = pandas.read_csv(f'{path}.csv', sep=',', dtype='str')
-    smls_list = list(input_df[smile_col])
-    prop_list = list(input_df[prop_name])
+# def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical'):
+def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
+    # TODO: add custom calculation of multiple properties
+    if smile_col is not None:
+        input_df = pandas.read_csv(f'{path}.csv', sep=',', dtype='str')
+        smls_list = list(input_df[smile_col])
+    else:
+        input_df = pandas.read_csv(f'{path}.csv', header=None, sep=',', dtype='str')
+        smls_list = list(input_df[0])
+
+    #prop_list = list(input_df[prop_name])
     rand_perm = torch.randperm(max_atom)
     data_list = []
 
-    for smls, prop in tqdm(zip(smls_list, prop_list)):
+    # for smls, prop in tqdm(zip(smls_list, prop_list)):
+    for smls in tqdm(smls_list):
         mol = Chem.MolFromSmiles(smls)
         n = mol.GetNumAtoms()
-        y = torch.tensor([float(prop)])
+        # y = torch.tensor([float(prop)])
 
         p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
         x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
@@ -115,7 +194,8 @@ def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical
             case _:
                 os.error('Unknown order')
 
-        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, 'y': y})
+        # data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, 'y': y})
+        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s})
 
     torch.save(data_list, f'{path}_{order}.pt')
 
@@ -157,7 +237,7 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'zinc250k'
+    dataset = 'polymer'
     orders = ['unordered', 'canonical', 'bft', 'dft', 'rcm', 'rand']
 
     for order in orders:
@@ -167,6 +247,12 @@ if __name__ == '__main__':
                     download_qm9(order=order)
                 case 'zinc250k':
                     download_zinc250k(order=order)
+                case 'moses':
+                    download_moses(order=order)
+                case 'guacamol':
+                    download_guacamol(order=order)
+                case 'polymer':
+                    download_polymer(order=order)
                 case _:
                     os.error('Unsupported dataset.')
 
