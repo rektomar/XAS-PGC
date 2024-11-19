@@ -14,6 +14,8 @@ from utils.evaluate import evaluate_molecules
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import breadth_first_order, depth_first_order, reverse_cuthill_mckee
 
+from utils.props import calculate_props
+
 MOLECULAR_DATASETS = {
     'qm9': {
         'dataset': 'qm9',
@@ -131,7 +133,6 @@ def download_polymer(dir='data/', order='canonical'):
 
     print('Done.')
 
-
 def perm_molecule(mol, p, max_atom, atom_list):
     Chem.Kekulize(mol)
     x, a = mol2g(mol, max_atom, atom_list)
@@ -140,7 +141,6 @@ def perm_molecule(mol, p, max_atom, atom_list):
 
 # def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical'):
 def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
-    # TODO: add custom calculation of multiple properties
     if smile_col is not None:
         input_df = pandas.read_csv(f'{path}.csv', sep=',', dtype='str')
         smls_list = list(input_df[smile_col])
@@ -156,7 +156,7 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
     for smls in tqdm(smls_list):
         mol = Chem.MolFromSmiles(smls)
         n = mol.GetNumAtoms()
-        # y = torch.tensor([float(prop)])
+        props = calculate_props(mol)
 
         p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
         x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
@@ -195,7 +195,7 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
                 os.error('Unknown order')
 
         # data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, 'y': y})
-        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s})
+        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, **props})
 
     torch.save(data_list, f'{path}_{order}.pt')
 
@@ -237,7 +237,7 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'polymer'
+    dataset = 'zinc250k'
     orders = ['unordered', 'canonical', 'bft', 'dft', 'rcm', 'rand']
 
     for order in orders:
