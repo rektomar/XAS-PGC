@@ -1,18 +1,19 @@
 {
     "dataset": "qm9",
     "model": "zero_sort",
+    "order": "rcm",
     "model_hpars": {
         "nc": 100,
-        "bx": "btree",
+        "bx": "rtree",
         "bx_hpars": {
-            "nl": 4,
+            "nl": 3,
             "nr": 1,
             "ns": 40,
             "ni": 40
         },
-        "ba": "btree",
+        "ba": "rtree",
         "ba_hpars": {
-            "nl": 4,
+            "nl": 3,
             "nr": 1,
             "ns": 40,
             "ni": 40

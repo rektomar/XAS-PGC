@@ -1,20 +1,20 @@
 {
     "dataset": "zinc250k",
     "model": "zero_sort",
-    "order": "bft",
+    "order": "rcm",
     "model_hpars": {
         "nc": 100,
-        "bx": "btree",
+        "bx": "rtree",
         "bx_hpars": {
             "nl": 4,
-            "nr": 1,
+            "nr": 10,
             "ns": 40,
             "ni": 40
         },
-        "ba": "btree",
+        "ba": "rtree",
         "ba_hpars": {
-            "nl": 4,
-            "nr": 1,
+            "nl": 6,
+            "nr": 10,
             "ns": 40,
             "ni": 40
         },

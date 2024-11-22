@@ -40,7 +40,7 @@ def unsupervised(dataset, name, par_buffer):
     print(hyperpars['order'])
 
     path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR, verbose=True)
-    model = torch.load(path)
+    model = torch.load(path, weights_only=False)
     metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False)
 
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))

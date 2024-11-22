@@ -197,6 +197,50 @@ def partition_on_node(graph, node, scope_partition):
     return product, product_children
 
 
+def binary_partition_on_node(graph, node):
+    """
+    Calls partition_on_node with a binary partition -- used for binary trees.
+
+    :param graph: PC graph (DiGraph)
+    :param node: node in the graph (DistributionVector)
+    :param proportions: split proportions (list of numbers)
+    :return: the product and a list if the products children
+    """
+    # if 2 > len(node.scope):
+    #     raise AssertionError("Cannot split scope of length {} into {} parts.".format(len(node.scope), 2))
+
+    # scope = list(node.scope)
+    # half = len(scope) // 2
+    # child_indices = [scope[:half], scope[half:]]
+
+    return partition_on_node(graph, node, np.array_split(list(node.scope), 2))
+
+
+def binary_tree(num_var, depth):
+    """
+    Generate a PC graph via several binary trees.
+
+    :param num_var: number of random variables (int)
+    :param depth: splitting depth (int)
+    :return: generated graph (DiGraph)
+    """
+    graph = nx.DiGraph()
+    root = DistributionVector(range(num_var))
+    graph.add_node(root)
+
+    cur_nodes = [root]
+    for d in range(depth):
+        child_nodes = []
+        for node in cur_nodes:
+            _, cur_child_nodes = binary_partition_on_node(graph, node)
+            child_nodes += cur_child_nodes
+        cur_nodes = child_nodes
+    for node in cur_nodes:
+        node.einet_address.replica_idx = 0
+
+    return graph
+
+
 def randomly_partition_on_node(graph, node, num_parts=2, proportions=None, rand_state=None):
     """
     Calls partition_on_node with a random partition -- used for random binary trees (RAT-SPNs).
@@ -225,8 +269,7 @@ def randomly_partition_on_node(graph, node, num_parts=2, proportions=None, rand_
     if rand_state is not None:
         permutation = list(rand_state.permutation(list(node.scope)))
     else:
-        # permutation = list(np.random.permutation(list(node.scope)))
-        permutation = list(node.scope)
+        permutation = list(np.random.permutation(list(node.scope)))
 
     child_indices = []
     for p in range(num_parts):
