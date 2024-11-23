@@ -171,6 +171,11 @@ def get_distribution_nodes_by_scope(graph, scope):
     return [n for n in graph.nodes if type(n) == DistributionVector and n.scope == scope]
 
 
+def binary_split(scope):
+    i = len(scope) // 2
+    return scope[:i], scope[i:]
+
+
 def partition_on_node(graph, node, scope_partition):
     """
     Helper routine to extend the graph.
@@ -197,25 +202,6 @@ def partition_on_node(graph, node, scope_partition):
     return product, product_children
 
 
-def binary_partition_on_node(graph, node):
-    """
-    Calls partition_on_node with a binary partition -- used for binary trees.
-
-    :param graph: PC graph (DiGraph)
-    :param node: node in the graph (DistributionVector)
-    :param proportions: split proportions (list of numbers)
-    :return: the product and a list if the products children
-    """
-    # if 2 > len(node.scope):
-    #     raise AssertionError("Cannot split scope of length {} into {} parts.".format(len(node.scope), 2))
-
-    # scope = list(node.scope)
-    # half = len(scope) // 2
-    # child_indices = [scope[:half], scope[half:]]
-
-    return partition_on_node(graph, node, np.array_split(list(node.scope), 2))
-
-
 def binary_tree(num_var, depth):
     """
     Generate a PC graph via several binary trees.
@@ -232,11 +218,41 @@ def binary_tree(num_var, depth):
     for d in range(depth):
         child_nodes = []
         for node in cur_nodes:
-            _, cur_child_nodes = binary_partition_on_node(graph, node)
+            _, cur_child_nodes = partition_on_node(graph, node, binary_split(list(node.scope), 2))
             child_nodes += cur_child_nodes
         cur_nodes = child_nodes
     for node in cur_nodes:
         node.einet_address.replica_idx = 0
+
+    return graph
+
+
+def permuted_binary_trees(permutations, depth):
+    """
+    Generate a PC graph via several permuted binary trees.
+
+    :param permutations: a list of permutations
+    :param depth: splitting depth (int)
+    :return: generated graph (DiGraph)
+    """
+    graph = nx.DiGraph()
+    root = DistributionVector(range(len(permutations[0])))
+    graph.add_node(root)
+
+    for i, perm in enumerate(permutations):
+        root.scope = perm
+        cur_nodes = [root]
+        for d in range(depth):
+            child_nodes = []
+            for node in cur_nodes:
+                print(binary_split(list(node.scope)))
+                _, cur_child_nodes = partition_on_node(graph, node, binary_split(list(node.scope)))
+                child_nodes += cur_child_nodes
+            cur_nodes = child_nodes
+        for node in cur_nodes:
+            node.einet_address.replica_idx = i
+
+    root.scope = tuple(range(len(permutations[0])))
 
     return graph
 
@@ -650,14 +666,14 @@ if __name__ == '__main__':
     # plt.show()
     plt.savefig('rbt.png')
 
-    print()
+    # print()
 
-    graph = poon_domingos_structure((3, 3), delta=1, max_split_depth=None)
-    _, msg = check_graph(graph)
-    print(msg)
-    plt.figure(1)
-    plt.clf()
-    plt.title("Poon-Domingos Structure")
-    plot_graph(graph)
-    # plt.show()
-    plt.savefig('pd.png')
+    # graph = poon_domingos_structure((3, 3), delta=1, max_split_depth=None)
+    # _, msg = check_graph(graph)
+    # print(msg)
+    # plt.figure(1)
+    # plt.clf()
+    # plt.title("Poon-Domingos Structure")
+    # plot_graph(graph)
+    # # plt.show()
+    # plt.savefig('pd.png')

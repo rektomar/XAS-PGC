@@ -30,7 +30,7 @@ if __name__ == '__main__':
     # torch.set_printoptions(threshold=10_000, linewidth=200)
     RDLogger.DisableLog('rdApp.*')
 
-    dataset = 'zinc250k'
+    dataset = 'qm9'
 
     names = [
         'zero_sort',

@@ -4,17 +4,15 @@
     "order": "rcm",
     "model_hpars": {
         "nc": 100,
-        "bx": "rtree",
+        "backend": "ptree",
+        "nr": 40,
         "bx_hpars": {
             "nl": 3,
-            "nr": 1,
             "ns": 40,
             "ni": 40
         },
-        "ba": "rtree",
         "ba_hpars": {
-            "nl": 3,
-            "nr": 1,
+            "nl": 5,
             "ns": 40,
             "ni": 40
         },
