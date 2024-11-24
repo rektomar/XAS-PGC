@@ -5,14 +5,14 @@
     "model_hpars": {
         "nc": 100,
         "backend": "ptree",
-        "nr": 20,
+        "nr": 2,
         "bx_hpars": {
             "nl": 4,
             "ns": 40,
             "ni": 40
         },
         "ba_hpars": {
-            "nl": 6,
+            "nl": 3,
             "ns": 40,
             "ni": 40
         },

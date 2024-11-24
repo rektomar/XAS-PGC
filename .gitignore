@@ -19,6 +19,5 @@ config/zinc250k/molspn_marg_sort.json
 
 utils/graph_features_molecular.py
 
-adjacency_plot.py
 adjacency_plot.tex
 adjacency_plot.pdf
