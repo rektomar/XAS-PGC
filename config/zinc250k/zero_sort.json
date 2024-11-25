@@ -1,20 +1,15 @@
 {
     "dataset": "zinc250k",
     "model": "zero_sort",
-    "order": "rcm",
+    "order": "canonical",
     "model_hpars": {
         "nc": 100,
-        "backend": "ptree",
-        "nr": 2,
+        "backend": "ctree",
         "bx_hpars": {
-            "nl": 4,
-            "ns": 40,
-            "ni": 40
+            "nh": 256
         },
         "ba_hpars": {
-            "nl": 3,
-            "ns": 40,
-            "ni": 40
+            "nh": 256
         },
         "device": "cuda"
     },
@@ -27,6 +22,6 @@
         ]
     },
     "num_epochs": 40,
-    "batch_size": 1000,
+    "batch_size": 256,
     "seed": 0
 }
