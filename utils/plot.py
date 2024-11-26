@@ -1,7 +1,8 @@
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem.Draw import MolsToGridImage, rdMolDraw2D
-from utils.evaluate import get_vmols, resample_invalid_mols
+from utils.evaluate import resample_invalid_mols
+from utils.molecular import correct_mols
 
 
 def get_hit(mol, patt):
@@ -62,7 +63,7 @@ def plot_grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=Fa
 
 def plot_grid_unconditional(model, nrows, ncols, max_atoms, atom_list, fname="unco_mols", useSVG=False):
     x, a = resample_invalid_mols(model, nrows*ncols, atom_list, max_atoms)
-    vmols, _ = get_vmols(x, a, atom_list, correct_mols=True)
+    vmols = correct_mols(x, a, atom_list)
     img = MolsToGridImage(vmols[:nrows*ncols], molsPerRow=ncols, subImgSize=(400, 400), useSVG=useSVG)
     if useSVG:
          with open(f'plots/{fname}.svg', 'w') as f:

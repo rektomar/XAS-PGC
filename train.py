@@ -3,7 +3,7 @@ import torch
 
 from rdkit import RDLogger
 from utils.datasets import MOLECULAR_DATASETS, load_dataset
-from utils.train import train, evaluate, backend_hpars_prefix
+from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
 from models import molspn_zero

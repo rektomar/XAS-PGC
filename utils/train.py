@@ -9,6 +9,7 @@ from rdkit.Chem.Draw import MolsToGridImage
 from utils.graphs import unflatt_tril
 
 from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_parameters
+from utils.molecular import correct_mols, mols2gs
 
 IGNORED_HYPERPARS = [
     'atom_list',
@@ -150,7 +151,7 @@ def evaluate(
         smiles_trn,
         hyperpars,
         evaluation_dir,
-        num_samples=4000,
+        num_samples=10000,
         compute_nll=True
     ):
     model.eval()
@@ -165,11 +166,13 @@ def evaluate(
     x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], x_sam.size(1), canonical=canonical)
     time_res = default_timer() - start
 
-    mols_res_f, _, metrics_res_f = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], correct_mols=False, affix='res_f_', canonical=canonical)
-    mols_res_t, _, metrics_res_t = evaluate_molecules(x_res, a_res, smiles_trn, hyperpars['atom_list'], correct_mols=False, affix='res_t_', canonical=canonical)
     start = default_timer()
-    mols_cor_t, _, metrics_cor_t = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], correct_mols=True,  affix='cor_t_', canonical=canonical)
+    x_cor, a_cor = mols2gs(correct_mols(x_sam, a_sam, hyperpars['atom_list']), x_sam.size(1), hyperpars['atom_list'])
     time_cor = default_timer() - start
+
+    mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], preffix='sam_', canonical=canonical)
+    mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, smiles_trn, hyperpars['atom_list'], preffix='res_', canonical=canonical)
+    mols_cor, _, metrics_cor = evaluate_molecules(x_cor, a_cor, smiles_trn, hyperpars['atom_list'], preffix='cor_', canonical=canonical)
 
     if compute_nll == True:
         nll_trn_approx = run_epoch(model, loader_trn)
@@ -181,9 +184,9 @@ def evaluate(
     else:
         metrics_neglogliks = {}
 
-    metrics = {**metrics_res_f,
-               **metrics_res_t,
-               **metrics_cor_t,
+    metrics = {**metrics_sam,
+               **metrics_res,
+               **metrics_cor,
                **metrics_neglogliks,
                "time_sam": time_sam,
                "time_res": time_res,
@@ -194,7 +197,7 @@ def evaluate(
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
     path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
-    df = pd.DataFrame.from_dict({**flatten_dict(hyperpars), **metrics}, 'index').transpose()
+    df = pd.DataFrame.from_dict({**flatten_dict(backend_hpars_prefix(hyperpars)), **metrics}, 'index').transpose()
     df.to_csv(path + '.csv', index=False)
 
     dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
@@ -202,12 +205,12 @@ def evaluate(
         os.makedirs(dir)
     path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
 
-    img_res_f = MolsToGridImage(mols=mols_res_f[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
-    img_res_t = MolsToGridImage(mols=mols_res_t[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
-    img_cor_t = MolsToGridImage(mols=mols_cor_t[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
+    img_sam = MolsToGridImage(mols=mols_sam[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
+    img_res = MolsToGridImage(mols=mols_res[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
+    img_cor = MolsToGridImage(mols=mols_cor[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
 
-    img_res_f.save(path + f'_img_res_f.png')
-    img_res_t.save(path + f'_img_res_t.png')
-    img_cor_t.save(path + f'_img_cor_t.png')
+    img_sam.save(path + f'_san.png')
+    img_res.save(path + f'_res.png')
+    img_cor.save(path + f'_cor.png')
 
     return metrics

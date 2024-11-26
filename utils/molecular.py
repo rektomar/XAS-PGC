@@ -97,6 +97,9 @@ def correct(mol):
 
     return mol
 
+def correct_mols(x, a, atom_list):
+    return [correct(mol) for mol in gs2mols(x, a, atom_list)]
+
 def getvalid(mol, canonical=True):
     sml = Chem.MolToSmiles(mol, canonical=canonical)
     if Chem.MolFromSmiles(sml) is not None and mol is not None and '.' not in sml:

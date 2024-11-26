@@ -3,14 +3,11 @@ import torch
 import pandas as pd
 
 from rdkit import Chem
-from utils.molecular import mols2gs, gs2mols, correct, getvalid
+from utils.molecular import mols2gs, gs2mols, getvalid
 
 
-def get_vmols(x, a, atom_list, correct_mols=False, canonical=True):
-    if correct_mols == True:
-        valid = [correct(mol) for mol in gs2mols(x, a, atom_list)]
-    else:
-        valid = [getvalid(mol, canonical) for mol in gs2mols(x, a, atom_list)]
+def get_vmols(x, a, atom_list, canonical=True):
+    valid = [getvalid(mol, canonical) for mol in gs2mols(x, a, atom_list)]
     vmols = [mol for mol in valid if mol is not None]
     vsmls = [Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=canonical) for mol in vmols]
 
@@ -40,10 +37,10 @@ def metric_s(ratio_v, ratio_u, ratio_n):
     return ratio_v*ratio_u*ratio_n
 
 
-def evaluate_molecules(x, a, tsmls, atom_list, correct_mols=False, metrics_only=False, canonical=True, affix=''):
+def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=True, preffix=''):
     num_mols = len(x)
 
-    vmols, vsmls = get_vmols(x, a, atom_list, correct_mols, canonical)
+    vmols, vsmls = get_vmols(x, a, atom_list, canonical)
 
     ratio_v = metric_v(vmols, num_mols)
     ratio_u, ratio_u_abs = metric_u(vsmls, num_mols)
@@ -51,12 +48,12 @@ def evaluate_molecules(x, a, tsmls, atom_list, correct_mols=False, metrics_only=
     ratio_s = metric_s(ratio_v, ratio_u, ratio_n)
 
     metrics = {
-        f'{affix}valid': ratio_v,
-        f'{affix}unique': ratio_u,
-        f'{affix}unique_abs': ratio_u_abs,
-        f'{affix}novel': ratio_n,
-        f'{affix}novel_abs': ratio_n_abs,
-        f'{affix}score': ratio_s
+        f'{preffix}valid': ratio_v,
+        f'{preffix}unique': ratio_u,
+        f'{preffix}unique_abs': ratio_u_abs,
+        f'{preffix}novel': ratio_n,
+        f'{preffix}novel_abs': ratio_n_abs,
+        f'{preffix}score': ratio_s
     }
 
     if metrics_only == True:

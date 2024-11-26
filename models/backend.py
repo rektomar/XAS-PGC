@@ -41,7 +41,30 @@ class BTreeSPN(EinsumNetwork.EinsumNetwork):
             exponential_family=ExponentialFamilyArray.CategoricalArray,
             exponential_family_args={'K': nk},
             use_em=False)
-        graph = Graph.binary_tree(nd, nl)
+        graph = Graph.binary_tree(nd, nl, 'half')
+
+        super().__init__(graph, args)
+        self.initialize()
+
+class VTreeSPN(EinsumNetwork.EinsumNetwork):
+    def __init__(self,
+                 nd,
+                 nk,
+                 nc,
+                 nl,
+                 ns,
+                 ni
+                 ):
+        args = EinsumNetwork.Args(
+            num_var=nd,
+            num_dims=1,
+            num_input_distributions=ni,
+            num_sums=ns,
+            num_classes=nc,
+            exponential_family=ExponentialFamilyArray.CategoricalArray,
+            exponential_family_args={'K': nk},
+            use_em=False)
+        graph = Graph.binary_tree(nd, nl, 'first')
 
         super().__init__(graph, args)
         self.initialize()
@@ -124,20 +147,23 @@ def backend_selector(x, a, hpars):
 
     match hpars['backend']:
         case 'btree':
-            network_x = BTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
-            network_a = BTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
+            network_x = BTreeSPN(   nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = BTreeSPN(   nd_a, nk_a, nc, **hpars['ba_hpars'])
+        case 'vtree':
+            network_x = VTreeSPN(   nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = VTreeSPN(   nd_a, nk_a, nc, **hpars['ba_hpars'])
         case 'rtree':
-            network_x = RTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
-            network_a = RTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
+            network_x = RTreeSPN(   nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = RTreeSPN(   nd_a, nk_a, nc, **hpars['ba_hpars'])
+        case 'ctree':
+            network_x = CTreeSPN(x, nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = CTreeSPN(a, nd_a, nk_a, nc, **hpars['ba_hpars'])
         case 'ptree':
             perms_x = list(itertools.islice(itertools.permutations(range(nd_x)), hpars['nr']))
             perms_a = permute_tril(nd_x, perms_x)
 
             network_x = PTreeSPN(nd_x, nk_x, nc, perms_x, **hpars['bx_hpars'])
             network_a = PTreeSPN(nd_a, nk_a, nc, perms_a, **hpars['ba_hpars'])
-        case 'ctree':
-            network_x = CTreeSPN(x, nd_x, nk_x, nc, **hpars['bx_hpars'])
-            network_a = CTreeSPN(a, nd_a, nk_a, nc, **hpars['ba_hpars'])
         case _:
             os.error('Unknown backend')
 

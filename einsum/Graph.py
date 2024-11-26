@@ -171,9 +171,18 @@ def get_distribution_nodes_by_scope(graph, scope):
     return [n for n in graph.nodes if type(n) == DistributionVector and n.scope == scope]
 
 
-def binary_split(scope):
-    i = len(scope) // 2
-    return scope[:i], scope[i:]
+def binary_split(scope, position='half'):
+    if 2 > len(scope):
+        raise AssertionError("Cannot split scope of length {} into {} parts.".format(len(scope), 2))
+
+    match position:
+        case 'first':
+            return scope[:1], scope[1:]
+        case 'half':
+            i = len(scope) // 2
+            return scope[:i], scope[i:]
+        case _:
+            AssertionError("Unknown position")
 
 
 def partition_on_node(graph, node, scope_partition):
@@ -202,7 +211,7 @@ def partition_on_node(graph, node, scope_partition):
     return product, product_children
 
 
-def binary_tree(num_var, depth):
+def binary_tree(num_var, depth, position):
     """
     Generate a PC graph via several binary trees.
 
@@ -218,7 +227,7 @@ def binary_tree(num_var, depth):
     for d in range(depth):
         child_nodes = []
         for node in cur_nodes:
-            _, cur_child_nodes = partition_on_node(graph, node, binary_split(list(node.scope), 2))
+            _, cur_child_nodes = partition_on_node(graph, node, binary_split(list(node.scope), position))
             child_nodes += cur_child_nodes
         cur_nodes = child_nodes
     for node in cur_nodes:
@@ -245,7 +254,6 @@ def permuted_binary_trees(permutations, depth):
         for d in range(depth):
             child_nodes = []
             for node in cur_nodes:
-                print(binary_split(list(node.scope)))
                 _, cur_child_nodes = partition_on_node(graph, node, binary_split(list(node.scope)))
                 child_nodes += cur_child_nodes
             cur_nodes = child_nodes

@@ -8,13 +8,13 @@
         "backend": "ptree",
         "bx_hpars": {
             "nl": 4,
-            "ns": 40,
-            "ni": 40
+            "ns": 20,
+            "ni": 20
         },
         "ba_hpars": {
-            "nl": 4,
-            "ns": 40,
-            "ni": 40
+            "nl": 6,
+            "ns": 20,
+            "ni": 20
         },
         "device": "cuda"
     },
@@ -26,7 +26,7 @@
             0.82
         ]
     },
-    "num_epochs": 40,
+    "num_epochs": 1,
     "batch_size": 256,
     "seed": 0
 }

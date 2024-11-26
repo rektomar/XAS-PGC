@@ -44,7 +44,7 @@ class MolSPNZeroSort(nn.Module):
     def logpdf(self, x, a):
         return self(x, a).mean()
 
-    def sample(self, num_samples):
+    def _sample(self, num_samples):
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
         samp_n = dist_n.sample((num_samples, ))
@@ -63,6 +63,21 @@ class MolSPNZeroSort(nn.Module):
         a.transpose(1, 2)[:, self.m] = l
 
         return x.cpu(), a.cpu()
+
+    def sample(self, num_samples, num_chunks=10):
+        if num_samples > 2000:
+            x_sam = []
+            a_sam = []
+            n = num_samples // num_chunks
+            for _ in range(num_chunks):
+                x, a = self._sample(n)
+                x_sam.append(x)
+                a_sam.append(a)
+            x_sam, a_sam = torch.stack(x_sam), torch.stack(a_sam)
+        else:
+            x_sam, a_sam = self._sample(num_samples)
+
+        return x_sam, a_sam
 
 MODELS = {
     'zero_sort': MolSPNZeroSort,
