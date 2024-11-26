@@ -122,24 +122,24 @@ def backend_selector(x, a, hpars):
     nk_a = len(a.unique())
     nc = hpars['nc']
 
-    # match hpars['backend']:
-    #     case 'btree':
-    #         network_x = BTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
-    #         network_a = BTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
-    #     case 'rtree':
-    #         network_x = RTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
-    #         network_a = RTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
-    #     case 'ptree':
-    #         perms_x = list(itertools.permutations(range(nd_x)))[0:hpars['nr']]
-    #         perms_a = permute_tril(nd_x, perms_x)
+    match hpars['backend']:
+        case 'btree':
+            network_x = BTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = BTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
+        case 'rtree':
+            network_x = RTreeSPN(nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = RTreeSPN(nd_a, nk_a, nc, **hpars['ba_hpars'])
+        case 'ptree':
+            perms_x = list(itertools.islice(itertools.permutations(range(nd_x)), hpars['nr']))
+            perms_a = permute_tril(nd_x, perms_x)
 
-    #         network_x = PTreeSPN(nd_x, nk_x, nc, perms_x, **hpars['bx_hpars'])
-    #         network_a = PTreeSPN(nd_a, nk_a, nc, perms_a, **hpars['ba_hpars'])
-    #     case 'ctree':
-    network_x = CTreeSPN(x, nd_x, nk_x, nc, **hpars['bx_hpars'])
-    network_a = CTreeSPN(a, nd_a, nk_a, nc, **hpars['ba_hpars'])
-        # case _:
-        #     os.error('Unknown backend')
+            network_x = PTreeSPN(nd_x, nk_x, nc, perms_x, **hpars['bx_hpars'])
+            network_a = PTreeSPN(nd_a, nk_a, nc, perms_a, **hpars['ba_hpars'])
+        case 'ctree':
+            network_x = CTreeSPN(x, nd_x, nk_x, nc, **hpars['bx_hpars'])
+            network_a = CTreeSPN(a, nd_a, nk_a, nc, **hpars['ba_hpars'])
+        case _:
+            os.error('Unknown backend')
 
     return network_x, nd_x, nk_x, network_a, nd_a, nk_a
 

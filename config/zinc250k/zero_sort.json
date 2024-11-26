@@ -4,12 +4,17 @@
     "order": "canonical",
     "model_hpars": {
         "nc": 100,
-        "backend": "ctree",
+        "nr": 20,
+        "backend": "ptree",
         "bx_hpars": {
-            "nh": 256
+            "nl": 4,
+            "ns": 40,
+            "ni": 40
         },
         "ba_hpars": {
-            "nh": 256
+            "nl": 4,
+            "ns": 40,
+            "ni": 40
         },
         "device": "cuda"
     },
