@@ -64,16 +64,16 @@ class MolSPNZeroSort(nn.Module):
 
         return x.cpu(), a.cpu()
 
-    def sample(self, num_samples, num_chunks=10):
-        if num_samples > 2000:
+    def sample(self, num_samples, chunk_size=2000):
+        if num_samples > chunk_size:
             x_sam = []
             a_sam = []
-            n = num_samples // num_chunks
-            for _ in range(num_chunks):
+            chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
+            for n in chunks:
                 x, a = self._sample(n)
                 x_sam.append(x)
                 a_sam.append(a)
-            x_sam, a_sam = torch.stack(x_sam), torch.stack(a_sam)
+            x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
         else:
             x_sam, a_sam = self._sample(num_samples)
 
