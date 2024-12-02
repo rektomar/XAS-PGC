@@ -48,7 +48,7 @@ class MolSPNZeroSort(nn.Module):
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
         dist_w = torch.distributions.Categorical(logits=self.logits_w)
         samp_n = dist_n.sample((num_samples, ))
-        samp_w = dist_w.sample((num_samples, )).squeeze()
+        samp_w = dist_w.sample((num_samples, )).squeeze(-1)
 
         mask_x = torch.arange(self.nd_x, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
         mask_a = (mask_x.unsqueeze(2) * mask_x.unsqueeze(1))[:, self.m].view(-1, self.nd_a)
@@ -82,3 +82,18 @@ class MolSPNZeroSort(nn.Module):
 MODELS = {
     'zero_sort': MolSPNZeroSort,
 }
+
+
+if __name__ == '__main__':
+    dataset = 'zinc250k'
+
+    import json
+    from utils.datasets import load_dataset
+
+    with open(f'config/{dataset}/zero_sort.json', 'r') as f:
+        hyperpars = json.load(f)
+
+    loader_trn, loader_val = load_dataset(dataset, 256, split=[0.8, 0.2], order='canonical')
+    model = MolSPNZeroSort(loader_trn, hyperpars['model_hpars'])
+
+    model.sample(1)
