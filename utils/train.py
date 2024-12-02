@@ -8,7 +8,7 @@ from timeit import default_timer
 from rdkit.Chem.Draw import MolsToGridImage
 from utils.graphs import unflatt_tril
 
-from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_parameters
+from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_parameters, print_metrics
 from utils.molecular import correct_mols, mols2gs
 
 IGNORED_HYPERPARS = [
@@ -104,7 +104,7 @@ def train(
 
         x_sam, a_sam = model.sample(1000)
         metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True, canonical=(hyperpars['order']=='canonical'))
-        metrics_str = f'v={metrics["valid"]:.2f}, u={metrics["unique"]:.2f}, n={metrics["novel"]:.2f}, s={metrics["score"]:.2f}'
+        metrics_str = print_metrics(metrics)
 
         if metric_type in METRIC_TYPES:
             metric = metrics[metric_type]

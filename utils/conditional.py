@@ -89,11 +89,7 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
     metrics = evaluate_molecules(xc, ac, train_fsmls, atom_list, metrics_only=True)
     print(f'\tPattern occurence in training dataset: {occ_pct:.2f}%')
     print('\t', end='')
-    print_metrics(metrics['valid'],
-                  metrics['novel'],
-                  metrics['unique'],
-                  metrics['score'])
-    
+    print_metrics(metrics)
 
 def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_atoms, atom_list):
     assert num_to_show < num_to_sample

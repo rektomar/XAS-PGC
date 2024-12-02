@@ -84,5 +84,5 @@ GRIDS = {
 
 if __name__ == "__main__":
     print(len(grid_zero_sort('qm9')))
-    for p in grid_zero_sort('qm9')[-9:]:
-        print(json.dumps(p, indent=4))
+    # for p in grid_zero_sort('qm9')[-9:]:
+    #     print(json.dumps(p, indent=4))
