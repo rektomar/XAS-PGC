@@ -52,6 +52,10 @@ def calculate_plogP(mol: Chem.rdchem.Mol):
 #     return nfp
 
 def calculate_props(mol):
+    # print(Chem.MolToSmiles(mol))
+    Chem.Kekulize(mol)
+    # molecule needs to be sanitized to add the necessary information to mol (such as 'RingInfo')
+    Chem.SanitizeMol(mol)
     return {
         'SA'   : calculateScore(mol),             # Synthetic Accessibility
         'logP' : Chem.Descriptors.MolLogP(mol),   # logP score
