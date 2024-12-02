@@ -66,7 +66,7 @@ def create_observed_mol(smile, max_mol_size, atom_list, device='cuda'):
     mol = Chem.MolFromSmiles(smile)
     Chem.Kekulize(mol)
     xx, aa = mol2g(mol, max_mol_size, atom_list)
-    xx, aa = xx.unsqueeze(0).to(device).long(), aa.unsqueeze(0).to(device).long()
+    xx, aa = xx.unsqueeze(0).float().to(device), aa.unsqueeze(0).float().to(device)
     submol_size = mol.GetNumAtoms()
     return xx, aa, submol_size
 

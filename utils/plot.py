@@ -62,7 +62,7 @@ def plot_grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=Fa
         img.save(f'plots/{fname}.png')
 
 def plot_grid_unconditional(model, nrows, ncols, max_atoms, atom_list, fname="unco_mols", useSVG=False):
-    x, a = resample_invalid_mols(model, nrows*ncols, atom_list, max_atoms)
+    x, a = resample_invalid_mols(model, 2*nrows*ncols, atom_list, max_atoms)
     vmols = correct_mols(x, a, atom_list)
     img = MolsToGridImage(vmols[:nrows*ncols], molsPerRow=ncols, subImgSize=(400, 400), useSVG=useSVG)
     if useSVG:

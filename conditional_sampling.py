@@ -11,21 +11,21 @@ rdBase.DisableLog("rdApp.error")
 # preselected pattern smiles for each dataset
 patt_grid_config = {
     'qm9': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC'],
-    'zinc260k': []
+    'zinc250k': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC']
 }
 
 patt_eval_config = {
     'qm9': ['COC', 'N1NO1'],
-    'zinc260k': []
+    'zinc250k': ['COC', 'N1NO1']
 }
 
 model_path_config = {
-    'qm9': "results/training/model_checkpoint/qm9/molspn_zero_sort_feat/dataset=qm9_model=molspn_zero_sort_feat_nc=100_nd_n=9_nk_n=5_nk_e=4_nl_n=2_nl_e=2_nr_n=100_nr_e=100_ns_n=20_ns_e=20_ni_n=50_ni_e=50_dc_n=0.6_dc_e=0.6_regime=cat_device=cuda_lr=0.1_num_epochs=1000_batch_size=256_seed=0.pt",
-    'zinc250k': ""
+    'qm9': '/home/rektomar/projects/MolSPN/results/training/model_checkpoint/qm9/zero_sort/dataset=qm9_model=zero_sort_order=rcm_nc=100_backend=ptree_nr=40_xnl=3_xns=40_xni=40_anl=5_ans=40_ani=40_device=cuda_lr=0.05_betas=[0.9, 0.82]_num_epochs=40_batch_size=1000_seed=0.pt',
+    'zinc250k': '/home/rektomar/projects/MolSPN/results/training/model_checkpoint/zinc250k/zero_sort/dataset=zinc250k_model=zero_sort_order=canonical_nc=100_nr=20_backend=ptree_xnl=4_xns=20_xni=20_anl=6_ans=20_ani=20_device=cuda_lr=0.05_betas=[0.9, 0.82]_num_epochs=40_batch_size=256_seed=0.pt'
 }
 
 if __name__ == "__main__":
-    dataset = 'qm9'
+    dataset = 'zinc250k'
     atom_list = MOLECULAR_DATASETS[dataset]['atom_list']
     max_atoms = MOLECULAR_DATASETS[dataset]['max_atoms']
     max_types = MOLECULAR_DATASETS[dataset]['max_types']
@@ -35,7 +35,7 @@ if __name__ == "__main__":
     model = torch.load(model_path, weights_only=False)
     torch.manual_seed(2)
 
-    num_to_sample = 20
+    num_to_sample = 50
     num_to_show = 8  # assuming at least num_to_show of num_samples are valid
 
     patt_smls = patt_grid_config[dataset]
