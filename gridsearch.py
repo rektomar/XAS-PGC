@@ -94,7 +94,8 @@ if __name__ == "__main__":
     ]
     gpu_models = MODELS.keys()
 
-    for dataset in MOLECULAR_DATASETS.keys():
+    # for dataset in MOLECULAR_DATASETS.keys():
+    for dataset in ['qm9', 'zinc250k']:
         print(dataset)
         for model in all_models:
             print(model)

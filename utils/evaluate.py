@@ -6,8 +6,27 @@ from rdkit import Chem
 from utils.molecular import mols2gs, gs2mols, getvalid
 
 
-def get_vmols(x, a, atom_list, canonical=True):
-    valid = [getvalid(mol, canonical) for mol in gs2mols(x, a, atom_list)]
+def metric_s(mols, num_mols):
+    mols_stable = 0
+    bond_stable = 0
+    sum_atoms = 0
+
+    for mol in mols:
+        mol = Chem.AddHs(mol, explicitOnly=True)
+        num_atoms = mol.GetNumAtoms()
+        num_stable_bonds = 0
+        for atom in mol.GetAtoms():
+            num_stable_bonds += int(atom.HasValenceViolation() == False)
+
+        mols_stable += int(num_stable_bonds == num_atoms)
+        bond_stable += num_stable_bonds
+        sum_atoms += num_atoms
+
+    return mols_stable / float(num_mols), bond_stable / float(sum_atoms)
+
+
+def get_vmols(mols, canonical=True):
+    valid = [getvalid(mol, canonical) for mol in mols]
     vmols = [mol for mol in valid if mol is not None]
     vsmls = [Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=canonical) for mol in vmols]
 
@@ -33,19 +52,21 @@ def metric_n(vsmls, tsmls, num_mols):
         num_nmols = num_umols - sum([1 for mol in usmls if mol in tsmls])
         return num_nmols / num_umols, num_nmols / num_mols
 
-def metric_s(ratio_v, ratio_u, ratio_n):
+def metric_m(ratio_v, ratio_u, ratio_n):
     return ratio_v*ratio_u*ratio_n
 
 
 def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=True, preffix=''):
     num_mols = len(x)
 
-    vmols, vsmls = get_vmols(x, a, atom_list, canonical)
+    mols = gs2mols(x, a, atom_list)
+    vmols, vsmls = get_vmols(mols, canonical)
 
     ratio_v = metric_v(vmols, num_mols)
     ratio_u, ratio_u_abs = metric_u(vsmls, num_mols)
     ratio_n, ratio_n_abs = metric_n(vsmls, tsmls, num_mols)
-    ratio_s = metric_s(ratio_v, ratio_u, ratio_n)
+    ratio_s = metric_m(ratio_v, ratio_u, ratio_n)
+    ratio_m, ratio_a = metric_s(mols, num_mols)
 
     metrics = {
         f'{preffix}valid': ratio_v,
@@ -53,7 +74,9 @@ def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=Tru
         f'{preffix}unique_abs': ratio_u_abs,
         f'{preffix}novel': ratio_n,
         f'{preffix}novel_abs': ratio_n_abs,
-        f'{preffix}score': ratio_s
+        f'{preffix}score': ratio_s,
+        f'{preffix}m_stab': ratio_m,
+        f'{preffix}a_stab': ratio_a
     }
 
     if metrics_only == True:
@@ -61,14 +84,8 @@ def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=Tru
     else:
         return vmols, vsmls, metrics
 
-def print_metrics(valid, novel, unique, score, novel_abs=[], unique_abs=[], abs=False):
-    if abs == True:
-        print("V:{:>6.2f}%, U:{:>6.2f}%, U (abs):{:>6.2f}% N:{:>6.2f}%, N (abs):{:>6.2f}%, S:{:>6.2f}%".format(
-            100*valid, 100*unique, 100*unique_abs, 100*novel, 100*novel_abs, 100*score))
-    else:
-        print("V:{:>6.2f}%, U:{:>6.2f}%, N:{:>6.2f}%, S:{:>6.2f}%".format(
-            100*valid, 100*unique, 100*novel, 100*score))
-
+def print_metrics(metrics):
+    return f'v={metrics["valid"]:.2f}, u={metrics["unique"]:.2f}, n={metrics["novel"]:.2f}, s={metrics["score"]:.2f}, ms={metrics["m_stab"]:.2f}, as={metrics["a_stab"]:.2f}'
 
 def best_model(path):
     files = os.listdir(path)
@@ -129,7 +146,7 @@ def test_metrics(gsmls, tsmls, max_atom, atom_list, disrupt_mol=None):
 if __name__ == '__main__':
     # 10 samples from the QM9 dataset
     max_atom = 9
-    atom_list = [6, 7, 8, 9, 0]
+    atom_list = [0, 6, 7, 8, 9]
     tsmls = [
             'CCC1(C)CN1C(C)=O',
             'O=CC1=COC(=O)N=C1',

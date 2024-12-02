@@ -62,7 +62,7 @@ class MolSPNZeroSort(nn.Module):
         a[:, self.m] = l
         a.transpose(1, 2)[:, self.m] = l
 
-        return x.cpu(), a.cpu()
+        return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
 
     def sample(self, num_samples, chunk_size=2000):
         if num_samples > chunk_size:

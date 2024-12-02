@@ -11,6 +11,12 @@ BOND_ENCODER = {Chem.BondType.SINGLE: 1, Chem.BondType.DOUBLE: 2, Chem.BondType.
 BOND_DECODER = {1: Chem.BondType.SINGLE, 2: Chem.BondType.DOUBLE, 3: Chem.BondType.TRIPLE, 4: Chem.BondType.AROMATIC}
 
 
+def unpad(x, a):
+    atoms_exist = ~((a > 0).all(dim=0) + (x == 0))
+    atoms = x[atoms_exist]
+    bonds = a[atoms_exist, :][:, atoms_exist]
+    return atoms, bonds
+
 def mol2x(mol, max_atom, atom_list):
     atom_tensor = torch.zeros(max_atom, dtype=torch.int8)
     for atom_idx, atom in enumerate(mol.GetAtoms()):
@@ -35,13 +41,11 @@ def mol2g(mol, max_atom, atom_list):
 def g2mol(x, a, atom_list):
     mol = Chem.RWMol()
 
-    atoms_exist = ~((a > 0).all(dim=0) + (x == 0))
-    atoms = x[atoms_exist]
+    atoms, bonds = unpad(x, a)
 
     for atom in atoms:
         mol.AddAtom(Chem.Atom(atom_list[atom]))
 
-    bonds = a[atoms_exist, :][:, atoms_exist]
     for start, end in zip(*torch.nonzero(bonds > 0, as_tuple=True)):
         if start > end:
             mol.AddBond(int(start), int(end), BOND_DECODER[bonds[start, end].item()])
@@ -63,8 +67,6 @@ def mols2gs(mols, max_atom, atom_list):
     return x, a
 
 def gs2mols(x, a, atom_list):
-    x = x.to(torch.int)
-    a = a.to(torch.int)
     return [g2mol(x, a, atom_list) for x, a in zip(x, a)]
 
 
@@ -118,7 +120,7 @@ def isvalid(mol, canonical=True):
 if __name__ == '__main__':
     # 10 samples from the QM9 dataset
     max_atom = 9
-    atom_list = [6, 7, 8, 9, 0]
+    atom_list = [0, 6, 7, 8, 9]
     smiles = [
             'CCC1(C)CN1C(C)=O',
             'O=CC1=COC(=O)N=C1',
