@@ -96,7 +96,7 @@ class MolSPNZeroSort(nn.Module):
         xo, ao, mx, ma = x.expand(num_samples, -1), a.expand(num_samples, -1, -1), mx.expand(num_samples, -1), ma.expand(num_samples, -1, -1)
 
         x, a = self.__sample(logits_w, logits_n, num_samples, xo=xo, ao=ao, mx=mx, ma=ma)
-        return x, a
+        return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
 
     @torch.no_grad
     def sample(self, num_samples: int, chunk_size: int=2000):
