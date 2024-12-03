@@ -70,7 +70,7 @@ def gs2mols(x, a, atom_list):
     return [g2mol(x, a, atom_list) for x, a in zip(x, a)]
 
 def mols2smls(mols, canonical=True):
-    return [Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=canonical) for mol in mols]
+    return [Chem.MolToSmiles(mol, canonical=canonical) for mol in mols]
 
 def valency(mol):
     try:

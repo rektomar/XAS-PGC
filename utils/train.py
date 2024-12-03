@@ -147,7 +147,7 @@ def evaluate(
         loaders,
         hyperpars,
         evaluation_dir,
-        num_samples=1000,
+        num_samples=10000,
         compute_nll=True
     ):
     model.eval()
