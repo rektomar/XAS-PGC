@@ -69,6 +69,8 @@ def mols2gs(mols, max_atom, atom_list):
 def gs2mols(x, a, atom_list):
     return [g2mol(x, a, atom_list) for x, a in zip(x, a)]
 
+def mols2smls(mols, canonical=True):
+    return [Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=canonical) for mol in mols]
 
 def valency(mol):
     try:
@@ -102,12 +104,23 @@ def correct(mol):
 def correct_mols(x, a, atom_list):
     return [correct(mol) for mol in gs2mols(x, a, atom_list)]
 
-def getvalid(mol, canonical=True):
-    sml = Chem.MolToSmiles(mol, canonical=canonical)
-    if Chem.MolFromSmiles(sml) is not None and mol is not None and '.' not in sml:
-        return mol
+def get_valid(sml):
+    mol = Chem.MolFromSmiles(sml)
+    if mol is not None and '.' not in sml:
+        return mol, sml
     else:
         return None
+
+def get_vmols(smls):
+    vmols = []
+    vsmls = []
+    for s in smls:
+        v = get_valid(s)
+        if v is not None:
+            vmols.append(v[0])
+            vsmls.append(v[1])
+
+    return vmols, vsmls
 
 def isvalid(mol, canonical=True):
     sml = Chem.MolToSmiles(mol, canonical=canonical)

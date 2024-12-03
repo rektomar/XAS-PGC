@@ -209,27 +209,28 @@ class DictDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
-def load_dataset(name, batch_size, raw=False, seed=0, split=None, dir='data/', order='canonical'):
+def load_dataset(name, batch_size, split, seed=0, dir='data/', order='canonical'):
     x = DictDataset(torch.load(f'{dir}{name}_{order}.pt', weights_only=True))
 
-    if split is None:
-        with open(f'{dir}i_val_{name}.json') as f:
-            i_val = json.load(f)
-        i_trn = [t for t in range(len(x)) if t not in i_val]
+    torch.manual_seed(seed)
+    x_trn, x_val, x_tst = torch.utils.data.random_split(x, split)
 
-        x_trn = torch.utils.data.Subset(x, i_trn)
-        x_val = torch.utils.data.Subset(x, i_val)
-    else:
-        torch.manual_seed(seed)
-        x_trn, x_val = torch.utils.data.random_split(x, split)
+    loader_trn = torch.utils.data.DataLoader(x_trn, batch_size=batch_size, num_workers=2, shuffle=False, pin_memory=True)
+    loader_val = torch.utils.data.DataLoader(x_val, batch_size=batch_size, num_workers=2, shuffle=False, pin_memory=True)
+    loader_tst = torch.utils.data.DataLoader(x_tst, batch_size=batch_size, num_workers=2, shuffle=False, pin_memory=True)
 
-    if raw == True:
-        return x_trn, x_val
-    else:
-        loader_trn = torch.utils.data.DataLoader(x_trn, batch_size=batch_size, num_workers=2, shuffle=False, pin_memory=True)
-        loader_val = torch.utils.data.DataLoader(x_val, batch_size=batch_size, num_workers=2, shuffle=False, pin_memory=True)
+    smiles_trn = [x['s'] for x in loader_trn.dataset]
+    smiles_val = [x['s'] for x in loader_val.dataset]
+    smiles_tst = [x['s'] for x in loader_tst.dataset]
 
-        return loader_trn, loader_val
+    return {
+        'loader_trn': loader_trn,
+        'loader_val': loader_val,
+        'loader_tst': loader_tst,
+        'smiles_trn': smiles_trn,
+        'smiles_val': smiles_val,
+        'smiles_tst': smiles_tst
+    }
 
 
 if __name__ == '__main__':
