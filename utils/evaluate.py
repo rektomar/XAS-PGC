@@ -3,34 +3,8 @@ import torch
 import pandas as pd
 
 from rdkit import Chem
-from utils.molecular import mols2gs, gs2mols, getvalid
-
-
-def metric_s(mols, num_mols):
-    mols_stable = 0
-    bond_stable = 0
-    sum_atoms = 0
-
-    for mol in mols:
-        mol = Chem.AddHs(mol, explicitOnly=True)
-        num_atoms = mol.GetNumAtoms()
-        num_stable_bonds = 0
-        for atom in mol.GetAtoms():
-            num_stable_bonds += int(atom.HasValenceViolation() == False)
-
-        mols_stable += int(num_stable_bonds == num_atoms)
-        bond_stable += num_stable_bonds
-        sum_atoms += num_atoms
-
-    return mols_stable / float(num_mols), bond_stable / float(sum_atoms)
-
-
-def get_vmols(mols, canonical=True):
-    valid = [getvalid(mol, canonical) for mol in mols]
-    vmols = [mol for mol in valid if mol is not None]
-    vsmls = [Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=canonical) for mol in vmols]
-
-    return vmols, vsmls
+from fcd_torch import FCD
+from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
 
 
 def metric_v(vmols, num_mols):
@@ -55,16 +29,49 @@ def metric_n(vsmls, tsmls, num_mols):
 def metric_m(ratio_v, ratio_u, ratio_n):
     return ratio_v*ratio_u*ratio_n
 
+def metric_s(mols, num_mols):
+    mols_stable = 0
+    bond_stable = 0
+    sum_atoms = 0
 
-def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=True, preffix=''):
+    for mol in mols:
+        mol = Chem.AddHs(mol, explicitOnly=True)
+        num_atoms = mol.GetNumAtoms()
+        num_stable_bonds = 0
+        for atom in mol.GetAtoms():
+            num_stable_bonds += int(atom.HasValenceViolation() == False)
+
+        mols_stable += int(num_stable_bonds == num_atoms)
+        bond_stable += num_stable_bonds
+        sum_atoms += num_atoms
+
+    return mols_stable / float(num_mols), bond_stable / float(sum_atoms)
+
+def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
+    fcd = FCD(device=device, n_jobs=2, canonize=canonical)
+    return fcd(smls_ref, smls_gen)
+
+def evaluate_molecules(
+        x,
+        a,
+        loaders,
+        atom_list,
+        evaluate_val=False,
+        evaluate_tst=False,
+        metrics_only=False,
+        canonical=True,
+        preffix='',
+        device="cuda"
+    ):
     num_mols = len(x)
 
     mols = gs2mols(x, a, atom_list)
-    vmols, vsmls = get_vmols(mols, canonical)
+    smls = mols2smls(mols, canonical)
+    vmols, vsmls = get_vmols(smls)
 
     ratio_v = metric_v(vmols, num_mols)
     ratio_u, ratio_u_abs = metric_u(vsmls, num_mols)
-    ratio_n, ratio_n_abs = metric_n(vsmls, tsmls, num_mols)
+    ratio_n, ratio_n_abs = metric_n(vsmls, loaders['smiles_trn'], num_mols)
     ratio_s = metric_m(ratio_v, ratio_u, ratio_n)
     ratio_m, ratio_a = metric_s(mols, num_mols)
 
@@ -79,13 +86,29 @@ def evaluate_molecules(x, a, tsmls, atom_list, metrics_only=False, canonical=Tru
         f'{preffix}a_stab': ratio_a
     }
 
+    if evaluate_val == True:
+        metrics = metrics | {
+            f'{preffix}fcd_val': metric_f(vsmls, loaders['smiles_val'], device, canonical),
+            f'{preffix}nspdk_val': 0
+        }
+    if evaluate_tst == True:
+        metrics = metrics | {
+            f'{preffix}fcd_tst': metric_f(vsmls, loaders['smiles_tst'], device, canonical),
+            f'{preffix}nspdk_tst': 0
+        }
+
     if metrics_only == True:
         return metrics
     else:
         return vmols, vsmls, metrics
 
 def print_metrics(metrics):
-    return f'v={metrics["valid"]:.2f}, u={metrics["unique"]:.2f}, n={metrics["novel"]:.2f}, s={metrics["score"]:.2f}, ms={metrics["m_stab"]:.2f}, as={metrics["a_stab"]:.2f}'
+    return f'v={metrics["valid"]:.2f}, ' + \
+           f'u={metrics["unique"]:.2f}, ' + \
+           f'n={metrics["novel"]:.2f}, ' + \
+           f's={metrics["score"]:.2f}, ' + \
+           f'ms={metrics["m_stab"]:.2f}, ' + \
+           f'as={metrics["a_stab"]:.2f}'
 
 def best_model(path):
     files = os.listdir(path)
@@ -105,8 +128,8 @@ def resample_invalid_mols(model, num_samples, atom_list, max_atoms, canonical=Tr
 
     for _ in range(max_attempts):
         x, a = model.sample(n)
-        valid = [getvalid(mol, canonical) for mol in gs2mols(x, a, atom_list)]
-        mols.extend([mol for mol in valid if mol is not None])
+        vmols, _ = get_vmols(mols2smls(gs2mols(x, a, atom_list), canonical))
+        mols.extend(vmols)
         n = num_samples - len(mols)
         if len(mols) == num_samples:
             break

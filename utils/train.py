@@ -75,9 +75,7 @@ METRIC_TYPES = ['valid', 'unique', 'novel', 'score']
 
 def train(
         model,
-        loader_trn,
-        loader_val,
-        smiles_trn,
+        loaders,
         hyperpars,
         checkpoint_dir,
         num_nonimproving_epochs=2000,
@@ -98,12 +96,12 @@ def train(
 
     for epoch in range(hyperpars['num_epochs']):
         model.train()
-        nll_trn = run_epoch(model, loader_trn, verbose=verbose, optimizer=optimizer)
+        nll_trn = run_epoch(model, loaders['loader_trn'], verbose=verbose, optimizer=optimizer)
         # scheduler.step()
         model.eval()
 
         x_sam, a_sam = model.sample(1000)
-        metrics = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], metrics_only=True, canonical=(hyperpars['order']=='canonical'))
+        metrics = evaluate_molecules(x_sam, a_sam, loaders, hyperpars['atom_list'], metrics_only=True, canonical=(hyperpars['order']=='canonical'))
         metrics_str = print_metrics(metrics)
 
         if metric_type in METRIC_TYPES:
@@ -117,7 +115,7 @@ def train(
             else:
                 lookahead_counter -= 1
         else:
-            metric = run_epoch(model, loader_val, verbose=verbose)
+            metric = run_epoch(model, loaders['loader_val'], verbose=verbose)
             print(f'epoch {epoch:3d}: ll_trn={-nll_trn:.4f}, ll_val={-metric:.4f}, ' + metrics_str)
 
             if metric < best_metric:
@@ -146,37 +144,36 @@ def train(
 
 def evaluate(
         model,
-        loader_trn,
-        loader_val,
-        smiles_trn,
+        loaders,
         hyperpars,
         evaluation_dir,
-        num_samples=10000,
+        num_samples=1000,
         compute_nll=True
     ):
     model.eval()
 
     canonical = (hyperpars['order']=='canonical')
+    atom_list = hyperpars['atom_list']
 
     start = default_timer()
     x_sam, a_sam = model.sample(num_samples)
     time_sam = default_timer() - start
 
     start = default_timer()
-    x_res, a_res = resample_invalid_mols(model, num_samples, hyperpars['atom_list'], x_sam.size(1), canonical=canonical)
+    x_res, a_res = resample_invalid_mols(model, num_samples, atom_list, x_sam.size(1), canonical=canonical)
     time_res = default_timer() - start
 
     start = default_timer()
-    x_cor, a_cor = mols2gs(correct_mols(x_sam, a_sam, hyperpars['atom_list']), x_sam.size(1), hyperpars['atom_list'])
+    x_cor, a_cor = mols2gs(correct_mols(x_sam, a_sam, atom_list), x_sam.size(1), atom_list)
     time_cor = default_timer() - start
 
-    mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, smiles_trn, hyperpars['atom_list'], preffix='sam_', canonical=canonical)
-    mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, smiles_trn, hyperpars['atom_list'], preffix='res_', canonical=canonical)
-    mols_cor, _, metrics_cor = evaluate_molecules(x_cor, a_cor, smiles_trn, hyperpars['atom_list'], preffix='cor_', canonical=canonical)
+    mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, loaders, atom_list, True, True, preffix='sam_', canonical=canonical)
+    mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, loaders, atom_list, True, True, preffix='res_', canonical=canonical)
+    mols_cor, _, metrics_cor = evaluate_molecules(x_cor, a_cor, loaders, atom_list, True, True, preffix='cor_', canonical=canonical)
 
     if compute_nll == True:
-        nll_trn_approx = run_epoch(model, loader_trn)
-        nll_val_approx = run_epoch(model, loader_val)
+        nll_trn_approx = run_epoch(model, loaders['loader_trn'])
+        nll_val_approx = run_epoch(model, loaders['loader_val'])
         metrics_neglogliks = {
             'nll_trn_approx': nll_trn_approx,
             'nll_val_approx': nll_val_approx

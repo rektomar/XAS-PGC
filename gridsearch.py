@@ -29,19 +29,18 @@ def unsupervised(dataset, name, par_buffer):
     hyperpars = par_buffer[int(os.environ["SLURM_ARRAY_TASK_ID"])]
     hyperpars['atom_list'] = MOLECULAR_DATASETS[dataset]['atom_list']
 
-    loader_trn, loader_val = load_dataset(dataset, hyperpars['batch_size'], split=[0.8, 0.2], order=hyperpars['order'])
-    smiles_trn = [x['s'] for x in loader_trn.dataset]
+    loaders = load_dataset(dataset, hyperpars['batch_size'], [0.8, 0.1, 0.1], order=hyperpars['order'])
 
-    model = MODELS[name](loader_trn, hyperpars['model_hpars'])
+    model = MODELS[name](loaders['loader_trn'], hyperpars['model_hpars'])
     print(dataset)
     print(json.dumps(hyperpars, indent=4))
     print(model)
     print(f'The number of parameters is {count_parameters(model)}.')
     print(hyperpars['order'])
 
-    path = train(model, loader_trn, loader_val, smiles_trn, hyperpars, CHECKPOINT_DIR, verbose=True)
+    path = train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
     model = torch.load(path, weights_only=False)
-    metrics = evaluate(model, loader_trn, loader_val, smiles_trn, hyperpars, EVALUATION_DIR, compute_nll=False)
+    metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=False)
 
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))
 
