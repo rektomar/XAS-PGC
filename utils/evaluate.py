@@ -1,10 +1,14 @@
 import os
 import torch
 import pandas as pd
+import numpy as np
 
 from rdkit import Chem
 from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
+
+from scipy import histogram
+from scipy.stats import entropy, gaussian_kde
 
 
 def metric_v(vmols, num_mols):
@@ -50,6 +54,43 @@ def metric_s(mols, num_mols):
 def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
     fcd = FCD(device=device, n_jobs=2, canonize=canonical)
     return fcd(smls_ref, smls_gen)
+
+def continuous_kldiv(X_baseline, X_sampled) -> float:
+    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
+    kde_P = gaussian_kde(X_baseline)
+    kde_Q = gaussian_kde(X_sampled)
+    x_eval = np.linspace(np.hstack([X_baseline, X_sampled]).min(), np.hstack([X_baseline, X_sampled]).max(), num=1000)
+    P = kde_P(x_eval) + 1e-10
+    Q = kde_Q(x_eval) + 1e-10
+
+    return entropy(P, Q)
+
+def discrete_kldiv(X_baseline, X_sampled) -> float:
+    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
+    P, bins = histogram(X_baseline, bins=10, density=True)
+    P += 1e-10
+    Q, _ = histogram(X_sampled, bins=bins, density=True)
+    Q += 1e-10
+
+    return entropy(P, Q)
+
+def metric_k(props_ref: pd.DataFrame, props_samp: pd.DataFrame):
+    # TODO: get properties for props_ref from dataset and calculate properties for props_samp from generated molecules
+    kldivs = {}
+    for p in ['BCT', 'logP', 'MW', 'TPSA']:
+        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_samp[p])
+        kldivs[p] = kldiv
+
+    for p in ['numHBA', 'numHBD', 'numRB', 'numAlR', 'numArR']:
+        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_samp[p])
+        kldivs[p] = kldiv
+
+    # missing internal pairwise similarities
+
+    partial_scores = [np.exp(-score) for score in kldivs.values()]
+    score = np.sum(partial_scores) / len(partial_scores)
+
+    return score
 
 def evaluate_molecules(
         x,
