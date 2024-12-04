@@ -238,7 +238,7 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'zinc250k'
+    dataset = 'moses'
     orders = ['unordered', 'canonical', 'bft', 'dft', 'rcm', 'rand']
 
     for order in orders:

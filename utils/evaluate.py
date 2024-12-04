@@ -7,7 +7,7 @@ from rdkit import Chem
 from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
 
-from scipy import histogram
+from scipy.ndimage import histogram
 from scipy.stats import entropy, gaussian_kde
 
 
