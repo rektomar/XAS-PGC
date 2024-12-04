@@ -4,17 +4,12 @@
     "order": "canonical",
     "model_hpars": {
         "nc": 100,
-        "nr": 20,
-        "backend": "ptree",
+        "backend": "ctree",
         "bx_hpars": {
-            "nl": 4,
-            "ns": 20,
-            "ni": 20
+            "nh": 256
         },
         "ba_hpars": {
-            "nl": 6,
-            "ns": 20,
-            "ni": 20
+            "nh": 256
         },
         "device": "cuda"
     },
@@ -26,7 +21,7 @@
             0.82
         ]
     },
-    "num_epochs": 3,
+    "num_epochs": 40,
     "batch_size": 256,
     "seed": 0
 }

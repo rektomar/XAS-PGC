@@ -1,0 +1,32 @@
+{
+    "dataset": "qm9",
+    "model": "zero_sort",
+    "order": "canonical",
+    "model_hpars": {
+        "nc": 100,
+        "nr": 20,
+        "backend": "ptree",
+        "bx_hpars": {
+            "nl": 3,
+            "ns": 20,
+            "ni": 20
+        },
+        "ba_hpars": {
+            "nl": 5,
+            "ns": 20,
+            "ni": 20
+        },
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hpars": {
+        "lr": 0.05,
+        "betas": [
+            0.9,
+            0.82
+        ]
+    },
+    "num_epochs": 40,
+    "batch_size": 256,
+    "seed": 0
+}

@@ -1,15 +1,20 @@
 {
-    "dataset": "qm9",
+    "dataset": "zinc250k",
     "model": "zero_sort",
-    "order": "rcm",
+    "order": "canonical",
     "model_hpars": {
         "nc": 100,
-        "backend": "ctree",
+        "nr": 20,
+        "backend": "ptree",
         "bx_hpars": {
-            "nh": 128
+            "nl": 4,
+            "ns": 20,
+            "ni": 20
         },
         "ba_hpars": {
-            "nh": 128
+            "nl": 6,
+            "ns": 20,
+            "ni": 20
         },
         "device": "cuda"
     },

@@ -7,17 +7,9 @@ from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
 from models import molspn_zero
-from models import molspn_marg
-from models import molspn_none
-from models import molspn_band
-from models import molspn_hclt
 
 MODELS = {
-    **molspn_zero.MODELS,
-    **molspn_marg.MODELS,
-    **molspn_band.MODELS,
-    **molspn_none.MODELS,
-    **molspn_hclt.MODELS
+    **molspn_zero.MODELS
 }
 
 
@@ -32,22 +24,22 @@ if __name__ == '__main__':
 
     dataset = 'zinc250k'
 
-    names = [
-        'zero_sort',
-        # 'molspn_marg_sort',
-        # 'molspn_none_sort',
-        # 'molspn_hclt_sort',
-        # 'molspn_mclt_sort',
+    backends = [
+        # 'zero_sort_btree'
+        # 'zero_sort_vtree'
+        # 'zero_sort_rtree'
+        # 'zero_sort_ptree'
+        'zero_sort_ctree'
     ]
 
-    for name in names:
-        with open(f'config/{dataset}/{name}.json', 'r') as f:
+    for backend in backends:
+        with open(f'config/{dataset}/{backend}.json', 'r') as f:
             hyperpars = json.load(f)
         hyperpars['atom_list'] = MOLECULAR_DATASETS[dataset]['atom_list']
 
         loaders = load_dataset(dataset, hyperpars['batch_size'], [0.8, 0.1, 0.1], order=hyperpars['order'])
 
-        model = MODELS[name](loaders['loader_trn'], hyperpars['model_hpars'])
+        model = MODELS[hyperpars['model']](loaders['loader_trn'], hyperpars['model_hpars'])
         print(dataset)
         print(json.dumps(hyperpars, indent=4))
         print(model)
