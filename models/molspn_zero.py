@@ -121,12 +121,39 @@ class MolSPNZeroSort(nn.Module):
             a_sam = []
             chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
             for n in chunks:
-                x, a = self._sample_conditional(x, a, mx, ma, num_samples)
+                x, a = self._sample_conditional(x, a, mx, ma, n)
                 x_sam.append(x)
                 a_sam.append(a)
             x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
         else:
             x_sam, a_sam = self._sample_conditional(x, a, mx, ma, num_samples)
+
+        return x_sam, a_sam
+
+    # to be only 'sample' function to remain
+    # need to change conditional sampling pipeline for this 
+    @torch.no_grad
+    def sample_all(self, num_samples: int, chunk_size: int=2000, x: torch.Tensor, a: torch.Tensor, mx: torch.Tensor, ma: torch.Tensor):
+        conditional = x is not None and a is not None and mx is not None and ma is not None
+
+        def _sample_wrapper(num):
+            if conditional:
+                # cond. works for single input observation only
+                return self._sample_conditional(x, a, mx, ma, num)
+            else:
+                return self._sample(num)
+    
+        if num_samples > chunk_size:
+            x_sam = []
+            a_sam = []
+            chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
+            for n in chunks:
+                x, a = _sample_wrapper(n)
+                x_sam.append(x)
+                a_sam.append(a)
+            x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
+        else:
+            x_sam, a_sam = _sample_wrapper(n)
 
         return x_sam, a_sam
 
