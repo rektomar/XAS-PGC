@@ -167,9 +167,9 @@ def evaluate(
     x_cor, a_cor = mols2gs(correct_mols(x_sam, a_sam, atom_list), x_sam.size(1), atom_list)
     time_cor = default_timer() - start
 
-    mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, loaders, atom_list, True, True, preffix='sam_', canonical=canonical)
-    mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, loaders, atom_list, True, True, preffix='res_', canonical=canonical)
-    mols_cor, _, metrics_cor = evaluate_molecules(x_cor, a_cor, loaders, atom_list, True, True, preffix='cor_', canonical=canonical)
+    mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, loaders, atom_list, False, True, True, preffix='sam_', canonical=canonical)
+    mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, loaders, atom_list, False, True, True, preffix='res_', canonical=canonical)
+    mols_cor, _, metrics_cor = evaluate_molecules(x_cor, a_cor, loaders, atom_list, False, True, True, preffix='cor_', canonical=canonical)
 
     if compute_nll == True:
         nll_trn_approx = run_epoch(model, loaders['loader_trn'])

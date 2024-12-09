@@ -1,5 +1,6 @@
 import pickle
 import networkx as nx
+import pandas as pd
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -44,6 +45,15 @@ def calculate_props(mol):
         'numArR': rdMolDescriptors.CalcNumAromaticRings(mol)  
          
         }
+
+def calculate_props_df(mols):
+    props = []
+    for mol in mols:
+        try:
+            props.append(calculate_props(mol))
+        except ZeroDivisionError:  # Zero division problem with SA calculation for really simple molecules
+            pass
+    return pd.DataFrame(props)
 
 if __name__ == '__main__':
     mol = Chem.MolFromSmiles('CC(C)C1=CC(=CC=C1C2=NC3=CC=CC=C3N2C4=CC=CC=C4)C5=CC=C(C=C5)OC')

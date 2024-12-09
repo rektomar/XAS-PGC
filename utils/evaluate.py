@@ -6,8 +6,9 @@ import numpy as np
 from rdkit import Chem
 from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
+from utils.props import calculate_props_df
 
-from scipy.ndimage import histogram
+# from scipy.ndimage import histogram
 from scipy.stats import entropy, gaussian_kde
 
 
@@ -65,24 +66,34 @@ def continuous_kldiv(X_baseline, X_sampled) -> float:
 
     return entropy(P, Q)
 
+# def discrete_kldiv(X_baseline, X_sampled) -> float:
+#     # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
+#     P, bins = histogram(X_baseline, bins=10, density=True)
+#     P += 1e-10
+#     Q, _ = histogram(X_sampled, bins=bins, density=True)
+#     Q += 1e-10
+
+#     return entropy(P, Q)
+
 def discrete_kldiv(X_baseline, X_sampled) -> float:
-    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
-    P, bins = histogram(X_baseline, bins=10, density=True)
-    P += 1e-10
-    Q, _ = histogram(X_sampled, bins=bins, density=True)
+    P, bin_edges = np.histogram(X_baseline, bins=10, density=True)
+    P += 1e-10 
+
+    Q, _ = np.histogram(X_sampled, bins=bin_edges, density=True)
     Q += 1e-10
 
-    return entropy(P, Q)
+    return entropy(P, Q) 
 
-def metric_k(props_ref: pd.DataFrame, props_samp: pd.DataFrame):
+
+def prop_kldiv(props_gen: pd.DataFrame, props_ref: pd.DataFrame):
     # TODO: get properties for props_ref from dataset and calculate properties for props_samp from generated molecules
     kldivs = {}
     for p in ['BCT', 'logP', 'MW', 'TPSA']:
-        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_samp[p])
+        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
         kldivs[p] = kldiv
 
     for p in ['numHBA', 'numHBD', 'numRB', 'numAlR', 'numArR']:
-        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_samp[p])
+        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
         kldivs[p] = kldiv
 
     # missing internal pairwise similarities
@@ -92,11 +103,20 @@ def metric_k(props_ref: pd.DataFrame, props_samp: pd.DataFrame):
 
     return score
 
+def metric_k(smls_gen, smls_ref):
+    mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
+    mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
+
+    props_gen = calculate_props_df(mols_gen)
+    props_ref = calculate_props_df(mols_ref)
+    return prop_kldiv(props_gen, props_ref)
+
 def evaluate_molecules(
         x,
         a,
         loaders,
         atom_list,
+        evaluate_trn=False,
         evaluate_val=False,
         evaluate_tst=False,
         metrics_only=False,
@@ -127,14 +147,22 @@ def evaluate_molecules(
         f'{preffix}a_stab': ratio_a
     }
 
+    if evaluate_trn == True:
+        metrics = metrics | {
+            f'{preffix}fcd_trn'  : metric_f(vsmls, loaders['smiles_trn'], device, canonical),
+            f'{preffix}kldiv_trn': metric_k(vsmls, loaders['smiles_trn']),
+            f'{preffix}nspdk_trn': 0
+        }
     if evaluate_val == True:
         metrics = metrics | {
-            f'{preffix}fcd_val': metric_f(vsmls, loaders['smiles_val'], device, canonical),
+            f'{preffix}fcd_val'  : metric_f(vsmls, loaders['smiles_val'], device, canonical),
+            f'{preffix}kldiv_val': metric_k(vsmls, loaders['smiles_val']),
             f'{preffix}nspdk_val': 0
         }
     if evaluate_tst == True:
         metrics = metrics | {
-            f'{preffix}fcd_tst': metric_f(vsmls, loaders['smiles_tst'], device, canonical),
+            f'{preffix}fcd_tst'  : metric_f(vsmls, loaders['smiles_tst'], device, canonical),
+            f'{preffix}kldiv_tst': metric_k(vsmls, loaders['smiles_tst']),
             f'{preffix}nspdk_tst': 0
         }
 
@@ -184,8 +212,6 @@ def resample_invalid_mols(model, num_samples, atom_list, max_atoms, canonical=Tr
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-
 
 
 def test_metrics(gsmls, tsmls, max_atom, atom_list, disrupt_mol=None):
