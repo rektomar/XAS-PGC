@@ -133,7 +133,7 @@ class MolSPNZeroSort(nn.Module):
     # to be only 'sample' function to remain
     # need to change conditional sampling pipeline for this 
     @torch.no_grad
-    def sample_all(self, num_samples: int, chunk_size: int=2000, x: torch.Tensor, a: torch.Tensor, mx: torch.Tensor, ma: torch.Tensor):
+    def sample_all(self, num_samples: int, x: torch.Tensor=None, a: torch.Tensor=None, mx: torch.Tensor=None, ma: torch.Tensor=None, chunk_size: int=2000):
         conditional = x is not None and a is not None and mx is not None and ma is not None
 
         def _sample_wrapper(num):
