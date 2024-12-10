@@ -7,6 +7,7 @@ from rdkit import Chem
 from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
 from utils.props import calculate_props_df
+from utils.nspdk import metric_nspdk
 
 # from scipy.ndimage import histogram
 from scipy.stats import entropy, gaussian_kde
@@ -151,19 +152,19 @@ def evaluate_molecules(
         metrics = metrics | {
             f'{preffix}fcd_trn'  : metric_f(vsmls, loaders['smiles_trn'], device, canonical),
             f'{preffix}kldiv_trn': metric_k(vsmls, loaders['smiles_trn']),
-            f'{preffix}nspdk_trn': 0
+            f'{preffix}nspdk_trn': metric_nspdk(vsmls, loaders['smiles_trn']),
         }
     if evaluate_val == True:
         metrics = metrics | {
             f'{preffix}fcd_val'  : metric_f(vsmls, loaders['smiles_val'], device, canonical),
             f'{preffix}kldiv_val': metric_k(vsmls, loaders['smiles_val']),
-            f'{preffix}nspdk_val': 0
+            f'{preffix}nspdk_val': metric_nspdk(vsmls, loaders['smiles_val']),
         }
     if evaluate_tst == True:
         metrics = metrics | {
             f'{preffix}fcd_tst'  : metric_f(vsmls, loaders['smiles_tst'], device, canonical),
             f'{preffix}kldiv_tst': metric_k(vsmls, loaders['smiles_tst']),
-            f'{preffix}nspdk_tst': 0
+            f'{preffix}nspdk_tst': metric_nspdk(vsmls, loaders['smiles_tst']),
         }
 
     if metrics_only == True:
