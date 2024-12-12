@@ -49,7 +49,6 @@ def nspdk_stats(graph_ref_list, graph_pred_list):
     mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, n_jobs=20)
     return mmd_dist
 
-
 def metric_nspdk(smls_gen, smls_ref):
     mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
     mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]

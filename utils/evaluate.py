@@ -6,11 +6,8 @@ import numpy as np
 from rdkit import Chem
 from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
-from utils.props import calculate_props_df
-from utils.nspdk import metric_nspdk
-
-# from scipy.ndimage import histogram
-from scipy.stats import entropy, gaussian_kde
+from utils.metrics.nspdk import metric_nspdk
+from utils.metrics.kldiv import metric_k
 
 
 def metric_v(vmols, num_mols):
@@ -56,61 +53,6 @@ def metric_s(mols, num_mols):
 def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
     fcd = FCD(device=device, n_jobs=2, canonize=canonical)
     return fcd(smls_ref, smls_gen)
-
-def continuous_kldiv(X_baseline, X_sampled) -> float:
-    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
-    kde_P = gaussian_kde(X_baseline)
-    kde_Q = gaussian_kde(X_sampled)
-    x_eval = np.linspace(np.hstack([X_baseline, X_sampled]).min(), np.hstack([X_baseline, X_sampled]).max(), num=1000)
-    P = kde_P(x_eval) + 1e-10
-    Q = kde_Q(x_eval) + 1e-10
-
-    return entropy(P, Q)
-
-# def discrete_kldiv(X_baseline, X_sampled) -> float:
-#     # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
-#     P, bins = histogram(X_baseline, bins=10, density=True)
-#     P += 1e-10
-#     Q, _ = histogram(X_sampled, bins=bins, density=True)
-#     Q += 1e-10
-
-#     return entropy(P, Q)
-
-def discrete_kldiv(X_baseline, X_sampled) -> float:
-    P, bin_edges = np.histogram(X_baseline, bins=10, density=True)
-    P += 1e-10 
-
-    Q, _ = np.histogram(X_sampled, bins=bin_edges, density=True)
-    Q += 1e-10
-
-    return entropy(P, Q) 
-
-
-def prop_kldiv(props_gen: pd.DataFrame, props_ref: pd.DataFrame):
-    # TODO: get properties for props_ref from dataset and calculate properties for props_samp from generated molecules
-    kldivs = {}
-    for p in ['BCT', 'logP', 'MW', 'TPSA']:
-        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
-        kldivs[p] = kldiv
-
-    for p in ['numHBA', 'numHBD', 'numRB', 'numAlR', 'numArR']:
-        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
-        kldivs[p] = kldiv
-
-    # missing internal pairwise similarities
-
-    partial_scores = [np.exp(-score) for score in kldivs.values()]
-    score = np.sum(partial_scores) / len(partial_scores)
-
-    return score
-
-def metric_k(smls_gen, smls_ref):
-    mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
-    mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
-
-    props_gen = calculate_props_df(mols_gen)
-    props_ref = calculate_props_df(mols_ref)
-    return prop_kldiv(props_gen, props_ref)
 
 def evaluate_molecules(
         x,
@@ -213,7 +155,6 @@ def resample_invalid_mols(model, num_samples, atom_list, max_atoms, canonical=Tr
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
 
 def test_metrics(gsmls, tsmls, max_atom, atom_list, disrupt_mol=None):
     gmols = [Chem.MolFromSmiles(sml) for sml in gsmls]
