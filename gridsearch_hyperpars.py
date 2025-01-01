@@ -40,23 +40,23 @@ def grid_ctree(
 
 
 def grid_zero_sort(dataset):
-    order = ['unordered', 'canonical', 'bft', 'dft', 'rcm', 'rand']
+    order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
     nc = [1, 8, 16]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
     backend_grid = [grid_btree, grid_vtree, grid_rtree, grid_ptree, grid_ctree]
     backend_xpar = [
-        {"nl":[3, 4],           "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4],           "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4], "nr":[1], "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4],           "ns":[20, 40], "ni":[20, 40]},
-        {"nh":[32, 64]}
+        {"nl":[3],           "ns":[40], "ni":[40]},
+        {"nl":[3],           "ns":[40], "ni":[40]},
+        {"nl":[3], "nr":[1], "ns":[40], "ni":[40]},
+        {"nl":[3],           "ns":[40], "ni":[40]},
+        {"nh":[64]}
     ]
     backend_apar = [
-        {"nl":[5, 6],           "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4],           "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4], "nr":[1], "ns":[20, 40], "ni":[20, 40]},
-        {"nl":[3, 4],           "ns":[20, 40], "ni":[20, 40]},
-        {"nh":[32, 64]}
+        {"nl":[5],           "ns":[40], "ni":[40]},
+        {"nl":[5],           "ns":[40], "ni":[40]},
+        {"nl":[5], "nr":[1], "ns":[40], "ni":[40]},
+        {"nl":[5],           "ns":[40], "ni":[40]},
+        {"nh":[64]}
     ]
     backend_nr = [
         [None],

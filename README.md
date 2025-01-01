@@ -27,6 +27,8 @@ pip install pandas==2.2.3
 pip install pylatex==1.4.2
 pip install scipy==1.14.1
 pip install fcd_torch==1.0.7
+pip install scikit-learn==1.6.0
+pip install git+https://github.com/fabriziocosta/EDeN.git
 ```
 
 ## 2. Preprocess

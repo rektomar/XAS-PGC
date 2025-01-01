@@ -172,8 +172,8 @@ def get_distribution_nodes_by_scope(graph, scope):
 
 
 def binary_split(scope, position='half'):
-    if len(scope) < 2:
-        raise AssertionError("Cannot split scope of length {} into {} parts.".format(len(scope), 2))
+    # if len(scope) < 2:
+    #     raise AssertionError("Cannot split scope of length {} into {} parts.".format(len(scope), 2))
 
     match position:
         case 'first':

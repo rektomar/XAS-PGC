@@ -12,6 +12,8 @@ from utils.evaluate import count_parameters
 
 from models import molspn_zero
 
+# nohup python -m gridsearch > gridsearch.log &
+
 MODELS = {
     **molspn_zero.MODELS
     }

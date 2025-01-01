@@ -105,24 +105,11 @@ def find_best_models(dataset, names_models, evaluation_dir):
 
 
 if __name__ == "__main__":
-    # checkpoint_dir = 'results/gridsearch/model_checkpoint/'
     evaluation_dir = 'results/gridsearch/model_evaluation/metrics/qm9/'
-    # hyperparam_dir = 'results/gridsearch/model_outputlogs/'
-    # bestmodels_dir = 'results/gridsearch/'
-
-    # models   = [name for name in graphspn.MODELS.keys() if name not in ['graphspn_naive_deq_b', 'graphspn_naive_deq_h']]
     models = os.listdir(evaluation_dir)
-    # models = ['graphspn_zero_none',
-    #           'graphspn_zero_rand',
-    #           'graphspn_zero_sort',
-    #           'graphspn_zero_kary',
-    #           'graphspn_zero_free']
 
     baselines = baseline_models_qm9()
-    
     ourmodels = find_best_models('qm9', models, evaluation_dir)
-    # baselines['score'] = baselines.apply(lambda row: row['validity']*row['uniqueness']*row['novelty']/10000, axis=1)
-
     allmodels = pd.concat([baselines, ourmodels], ignore_index=True)
 
     latexify_style(allmodels, 'qm9.tab', column_names=COLUMN_DISPLAY_NAMES)
