@@ -3,9 +3,10 @@ import torch
 from utils.datasets import load_dataset, MOLECULAR_DATASETS
 from utils.graphs import unflatt_tril
 from pylatex import Document, TikZ, NoEscape
+from math import isclose
 
 
-def nextgrouplot(pic, matrix, title):
+def nextgrouplot(pic, matrix, title, colorbar=False):
     s = []
     for i in range(len(matrix)):
         for j in range(len(matrix)):
@@ -14,43 +15,55 @@ def nextgrouplot(pic, matrix, title):
         s.append('\n\n')
     s = ' '.join(s)
 
-    pic.append(NoEscape(f'\\nextgroupplot[title={title},xlabel={{node (-)}},ylabel={{node (-)}}]'))
+    ngp = f'\\nextgroupplot[xlabel={title}'
+    if colorbar == True:
+        ngp += r',colorbar]'
+    else:
+        ngp += r']'
+
+    pic.append(NoEscape(ngp))
     pic.append(NoEscape(f'\\addplot[matrix plot, point meta=explicit] coordinates {{\n' + s + '\n};'))
 
+def markzeros(pic, matrix):
+    s = []
+    for i in range(len(matrix)):
+        for j in range(len(matrix)):
+            if isclose(matrix[i, j], 0.0, abs_tol=1e-8):
+                s.append(f'\\node[text=green] at (axis cs: {i+1},{j+1}) {{$*$}};')
+        s.append('\n')
+    s = ''.join(s)
+
+    pic.append(NoEscape(s))
+
 if __name__ == "__main__":
-    dataset = 'zinc250k'
+    dataset = 'qm9'
     max_atoms = MOLECULAR_DATASETS[dataset]['max_atoms']
 
-    loader_trn_uno, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='unordered')
-    loader_trn_rnd, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='rand')
-    loader_trn_can, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='canonical')
-    loader_trn_bft, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='bft')
-    loader_trn_dft, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='dft')
-    loader_trn_rcm, _ = load_dataset(dataset, 100, split=[0.99, 0.01], order='rcm')
+    loader_uno = load_dataset(dataset, 100, [0.98, 0.01, 0.01], order='unordered')
+    loader_can = load_dataset(dataset, 100, [0.98, 0.01, 0.01], order='canonical')
+    loader_bft = load_dataset(dataset, 100, [0.98, 0.01, 0.01], order='bft')
+    loader_dft = load_dataset(dataset, 100, [0.98, 0.01, 0.01], order='dft')
+    loader_rcm = load_dataset(dataset, 100, [0.98, 0.01, 0.01], order='rcm')
 
-    a_uno = torch.stack([b['a'] for b in loader_trn_uno.dataset])
-    a_rnd = torch.stack([b['a'] for b in loader_trn_rnd.dataset])
-    a_can = torch.stack([b['a'] for b in loader_trn_can.dataset])
-    a_bft = torch.stack([b['a'] for b in loader_trn_bft.dataset])
-    a_dft = torch.stack([b['a'] for b in loader_trn_dft.dataset])
-    a_rcm = torch.stack([b['a'] for b in loader_trn_rcm.dataset])
+    a_uno = torch.stack([b['a'] for b in loader_uno['loader_trn'].dataset])
+    a_can = torch.stack([b['a'] for b in loader_can['loader_trn'].dataset])
+    a_bft = torch.stack([b['a'] for b in loader_bft['loader_trn'].dataset])
+    a_dft = torch.stack([b['a'] for b in loader_dft['loader_trn'].dataset])
+    a_rcm = torch.stack([b['a'] for b in loader_rcm['loader_trn'].dataset])
 
     a_uno = unflatt_tril(a_uno, max_atoms)
-    a_rnd = unflatt_tril(a_rnd, max_atoms)
     a_can = unflatt_tril(a_can, max_atoms)
     a_bft = unflatt_tril(a_bft, max_atoms)
     a_dft = unflatt_tril(a_dft, max_atoms)
     a_rcm = unflatt_tril(a_rcm, max_atoms)
 
     a_uno = (a_uno > 0).to(torch.float).mean(dim=0)
-    a_rnd = (a_rnd > 0).to(torch.float).mean(dim=0)
     a_can = (a_can > 0).to(torch.float).mean(dim=0)
     a_bft = (a_bft > 0).to(torch.float).mean(dim=0)
     a_dft = (a_dft > 0).to(torch.float).mean(dim=0)
     a_rcm = (a_rcm > 0).to(torch.float).mean(dim=0)
 
     # a_uno = (a_uno > 0.).to(torch.float)
-    # a_rnd = (a_rnd > 0.).to(torch.float)
     # a_can = (a_can > 0.).to(torch.float)
     # a_bft = (a_bft > 0.).to(torch.float)
     # a_dft = (a_dft > 0.).to(torch.float)
@@ -61,17 +74,36 @@ if __name__ == "__main__":
     doc.packages.append(NoEscape(r'\pgfplotsset{compat=1.18}'))
     doc.packages.append(NoEscape(r'\usepgfplotslibrary{groupplots}'))
 
-    with doc.create(TikZ()) as pic:
-        # pic.append(NoEscape(r'\pgfplotsset{every tick label/.append style={font=\footnotesize}}'))
-        # pic.append(NoEscape(r'\begin{groupplot}[group style={group size=6 by 1, horizontal sep=35pt},view={0}{90},colormap name=viridis,height=5cm,width=5cm,label style={font=\footnotesize},y label style={at={(0.08,0.5)}},x label style={at={(0.5,0.05)}}]'))
-        pic.append(NoEscape(f'\\begin{{groupplot}}[group style={{group size=6 by 1}},height=5cm,width=5cm,xmin=0.5,xmax={max_atoms}.5,ymin=0.5,ymax={max_atoms}.5]'))
+    with doc.create(TikZ(options=NoEscape(r'font=\footnotesize'))) as pic:
+        pic.append(NoEscape(
+            r'\begin{groupplot}[' +
+                r'group style={group size=5 by 1},' +
+                r'height=3.7cm,' +
+                r'width=3.7cm,' +
+                r'xticklabel pos=right,' +
+                r'xtick={1,3,...,9},' +
+                r'ytick={1,3,...,9},' +
+                r'xmin=0.5,' +
+                r'ymin=0.5,' +
+                f'xmax={max_atoms}.5,' +
+                f'ymax={max_atoms}.5,' +
+                r'colormap name=hot,' +
+                r'point meta min=0.0,' +
+                r'point meta max=0.6,' +
+                r'colorbar style={width=5pt}' +
+            r']'
+        ))
 
-        nextgrouplot(pic, a_rnd, 'Unordered')
-        nextgrouplot(pic, a_rnd, 'Random')
-        nextgrouplot(pic, a_can, 'Canonical')
+        nextgrouplot(pic, a_uno, 'Unordered')
+        markzeros(pic, a_uno)
         nextgrouplot(pic, a_bft, 'BFT')
+        markzeros(pic, a_bft)
         nextgrouplot(pic, a_dft, 'DFT')
-        nextgrouplot(pic, a_rcm, 'Reverse Cuthill-McKee')
+        markzeros(pic, a_dft)
+        nextgrouplot(pic, a_rcm, 'RCM')
+        markzeros(pic, a_rcm)
+        nextgrouplot(pic, a_can, 'Morgan', True)
+        markzeros(pic, a_can)
 
         pic.append(NoEscape(r'\end{groupplot}'))
 

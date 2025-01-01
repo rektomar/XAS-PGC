@@ -1,15 +1,15 @@
 {
-    "dataset": "zinc250k",
+    "dataset": "moses",
     "model": "zero_sort",
     "order": "canonical",
     "model_hpars": {
         "nc": 100,
         "backend": "ctree",
         "bx_hpars": {
-            "nh": 512
+            "nh": 128
         },
         "ba_hpars": {
-            "nh": 512
+            "nh": 128
         },
         "device": "cuda"
     },

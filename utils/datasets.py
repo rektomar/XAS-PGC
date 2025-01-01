@@ -239,7 +239,7 @@ if __name__ == '__main__':
 
     download = True
     dataset = 'moses'
-    orders = ['unordered', 'canonical', 'bft', 'dft', 'rcm', 'rand']
+    orders = ['canonical', 'bft', 'dft', 'rcm', 'rand', 'unordered']
 
     for order in orders:
         if download:
