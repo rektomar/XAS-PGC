@@ -128,8 +128,6 @@ def latexify_style(df, path, row_names=None, column_names=None, precision=2):
     s.format(precision=3, subset=[('QM9','NSPDK'), ('Zinc250k','NSPDK')])
     s.to_latex(path, hrules=True, multicol_align='c')
 
-# [x+1 if x >= 45 else x+5 for x in l]
-
     line = []
     with open(path, 'r') as file_data:
         lines = file_data.read().splitlines()
@@ -141,7 +139,6 @@ def latexify_style(df, path, row_names=None, column_names=None, precision=2):
                     w += r'$\downarrow$'
             line.append(w)
         lines[3] = ' '.join(line)
-        print(lines[3])
 
         lines.insert(3, '\\cmidrule(lr){2-6}')
         lines.insert(4, '\\cmidrule(lr){7-11}')
