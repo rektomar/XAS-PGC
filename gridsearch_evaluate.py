@@ -7,9 +7,9 @@ from pylatex import Document, Package, NoEscape
 
 BACKEND_NAMES = {
     'btree': 'BTree',
-    'vtree': 'VTree',
-    'rtree': 'RAT',
-    'ptree': 'RAT-S',
+    'vtree': 'LTree',
+    'rtree': 'RTree',
+    'ptree': 'RTree-S',
     'ctree': 'HCLT'
 }
 
