@@ -6,8 +6,8 @@ gridsearch.log
 qm9.pdf
 qm9.tab
 
-train.pdf
-train.tex
+gridsearch_plot.pdf
+gridsearch_plot.tex
 
 hclt
 models/molspn_hclt.py

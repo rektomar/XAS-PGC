@@ -6,10 +6,10 @@ from pylatex import Document, Package, NoEscape
 
 
 BACKEND_NAMES = {
-    'btree': 'BTree',
-    'vtree': 'LTree',
-    'rtree': 'RTree',
-    'ptree': 'RTree-S',
+    'btree': 'BT',
+    'vtree': 'LT',
+    'rtree': 'RT',
+    'ptree': 'RT-S',
     'ctree': 'HCLT'
 }
 
@@ -166,8 +166,8 @@ def find_best_backends(evaluation_dir, dataset, model, backends):
     for i, backend in enumerate(backends.keys()):
         b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
         g_frame = b_frame.groupby(list(filter(lambda x: x not in IGNORE, b_frame.columns)))
-        a_frame = g_frame.agg({'sam_nspdk_val': 'mean'})
-        f_frame = g_frame.get_group(a_frame['sam_nspdk_val'].idxmin())
+        a_frame = g_frame.agg({'sam_valid': 'mean'})
+        f_frame = g_frame.get_group(a_frame['sam_valid'].idxmax())
 
         d_frame.loc[i] = [BACKEND_NAMES[backend],
                           100*f_frame['sam_valid'].mean(),

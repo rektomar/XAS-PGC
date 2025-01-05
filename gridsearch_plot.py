@@ -3,41 +3,49 @@ import pandas as pd
 
 from pylatex import Document, TikZ, NoEscape
 
-LEGENDS = {
-    'graphspn_zero_none': 'znone',
-    'graphspn_zero_full': 'zfull',
-    'graphspn_zero_rand': 'zrand',
-    'graphspn_zero_sort': 'zsort',
-    'graphspn_zero_kary': 'zkary',
-    'graphspn_zero_free': 'zfree',
+BACKEND_NAMES = {
+    'btree': 'BT',
+    'vtree': 'LT',
+    'rtree': 'RT',
+    'ptree': 'RT-S',
+    'ctree': 'HCLT'
 }
 
 # https://tikz.dev/pgfplots/reference-markers
 MARKS = {
-    'graphspn_zero_none': '+',
-    'graphspn_zero_full': '*',
-    'graphspn_zero_rand': 'o',
-    'graphspn_zero_sort': 'halfcircle',
-    'graphspn_zero_kary': 'diamond',
-    'graphspn_zero_free': 'pentagon',
+    'btree': '+',
+    'vtree': '*',
+    'rtree': 'o',
+    'ptree': 'halfcircle',
+    'ctree': 'diamond'
 }
 
-def nextgrouplot(models, ydata, ylabel, evaluation_dir):
-    pic.append(NoEscape(f'\\nextgroupplot[xlabel={{Number of parameters (-)}}, ylabel={{{ylabel} (-)}}]'))
-    for i, m in enumerate(models):
-        df = pd.concat([pd.read_csv(evaluation_dir + m + '/' + f) for f in os.listdir(evaluation_dir + m)])
-        coordinates = list(df[['num_params', ydata]].itertuples(index=False, name=None))
-        pic.append(NoEscape(f'\\addplot [color=c{i}, mark={MARKS[m]}, only marks] coordinates {{' + ' '.join(str(x) for x in coordinates) + '};' + f'\\addlegendentry{{{LEGENDS[m]}}};'))
+def nextgrouplot(pic, evaluation_dir, dataset, model, backends, ydata, ylabel, args=None):
+    ngp = f'\\nextgroupplot[xlabel={{Number of parameters (-)}}, ylabel={{{ylabel} (-)}}'
+    if args is not None:
+        ngp += f', {args}]'
+    else:
+        ngp += r']'
+
+    pic.append(NoEscape(ngp))
+    path = evaluation_dir + f'{dataset}/{model}/'
+    for i, backend in enumerate(backends):
+        b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
+        coordinates = list(b_frame[['num_params', ydata]].itertuples(index=False, name=None))
+        pic.append(NoEscape(f'\\addplot [color=c{i}, mark={MARKS[backend]}, only marks] coordinates {{' + ' '.join(str(x) for x in coordinates) + '};' + f'\\addlegendentry{{{BACKEND_NAMES[backend]}}};'))
 
 
 if __name__ == "__main__":
-    evaluation_dir = 'results/linesearch/model_evaluation/metrics/qm9/'
+    evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
 
-    models = os.listdir(evaluation_dir)
-    # models = ['graphspn_zero_none', 'graphspn_zero_rand', 'graphspn_zero_sort', 'graphspn_zero_kary', 'graphspn_zero_free']
+    model = 'zero_sort'
+    dataset = 'qm9'
+    ylim_nspdk = 0.1
+    ylim_fcd = 10.0
 
     doc = Document(documentclass='standalone', document_options=('preview'), geometry_options={'margin': '1cm'})
     doc.packages.append(NoEscape(r'\usepackage{pgfplots}'))
+    doc.packages.append(NoEscape(r'\pgfplotsset{compat=1.18}'))
     doc.packages.append(NoEscape(r'\usepgfplotslibrary{groupplots}'))
 
     doc.packages.append(NoEscape(r'\definecolor{c0}{RGB}{27,158,119}'))
@@ -47,36 +55,49 @@ if __name__ == "__main__":
     doc.packages.append(NoEscape(r'\definecolor{c4}{RGB}{230,171,2}'))
     doc.packages.append(NoEscape(r'\definecolor{c5}{RGB}{166,118,29}'))
 
-    doc.packages.append(NoEscape(r'\definecolor{c6}{RGB}{255,127,0}'))
-    doc.packages.append(NoEscape(r'\definecolor{c7}{RGB}{106,61,154}'))
-    doc.packages.append(NoEscape(r'\definecolor{c8}{RGB}{51,160,44}'))
-    doc.packages.append(NoEscape(r'\definecolor{c9}{RGB}{251,154,153}'))
-    doc.packages.append(NoEscape(r'\definecolor{c10}{RGB}{177,89,40}'))
-    doc.packages.append(NoEscape(r'\definecolor{c11}{RGB}{202,178,214}'))
-
     with doc.create(TikZ()) as pic:
         pic.append(NoEscape(r'\pgfplotsset{every tick label/.append style={font=\footnotesize}}'))
-        pic.append(NoEscape(r'\begin{groupplot}[group style={group size=4 by 3, horizontal sep=35pt, vertical sep=50pt},height=5cm,width=6.4cm,xmode=log,ymin=0,ymax=1,legend style={font=\tiny,fill=none,draw=none,row sep=-3pt},legend pos=south west,legend cell align=left,label style={font=\footnotesize},y label style={at={(0.08,0.5)}},x label style={at={(0.5,0.05)}}]'))
+        pic.append(NoEscape(
+            r'\begin{groupplot}[' +
+                r'group style={group size=3 by 5, horizontal sep=55pt, vertical sep=35pt},' +
+                r'height=5cm,' +
+                r'width=6.4cm,' +
+                r'xmode=log,' +
+                r'ymin=0,' +
+                r'ymax=1,' +
+                r'legend style={font=\tiny,fill=none,draw=none,row sep=-3pt},' +
+                r'legend pos=south west,' +
+                r'legend cell align=left,' +
+                r'label style={font=\footnotesize},' +
+                r'y label style={at={(-0.12,0.5)}},' +
+                r'x label style={at={(0.5,-0.09)}}' +
+            r']'
+        ))
 
-        nextgrouplot(models, 'res_f_valid',  'Validity',   evaluation_dir)
-        nextgrouplot(models, 'res_f_unique', 'Uniqueness', evaluation_dir)
-        nextgrouplot(models, 'res_f_novel',  'Novelty',    evaluation_dir)
-        nextgrouplot(models, 'res_f_score',  'Score',      evaluation_dir)
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_valid',     'Valid')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_valid',     'Valid')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_valid',     'Valid')
 
-        nextgrouplot(models, 'res_t_valid',  'Validity',   evaluation_dir)
-        nextgrouplot(models, 'res_t_unique', 'Uniqueness', evaluation_dir)
-        nextgrouplot(models, 'res_t_novel',  'Novelty',    evaluation_dir)
-        nextgrouplot(models, 'res_t_score',  'Score',      evaluation_dir)
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_unique',    'Unique')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_unique',    'Unique')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_unique',    'Unique')
 
-        nextgrouplot(models, 'cor_t_valid',  'Validity',   evaluation_dir)
-        nextgrouplot(models, 'cor_t_unique', 'Uniqueness', evaluation_dir)
-        nextgrouplot(models, 'cor_t_novel',  'Novelty',    evaluation_dir)
-        nextgrouplot(models, 'cor_t_score',  'Score',      evaluation_dir)
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_novel',     'Novel')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_novel',     'Novel')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_novel',     'Novel')
+
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
 
         pic.append(NoEscape(r'\end{groupplot}'))
 
-        pic.append(NoEscape(r'\node (t1) at ($(group c2r1.center)!0.5!(group c3r1.center)+(0,2.1cm)$) {Without Resampling (no domain knowledge)};'))
-        pic.append(NoEscape(r'\node (t2) at ($(group c2r2.center)!0.5!(group c3r2.center)+(0,2.1cm)$) {With Resampling (no domain knowledge)};'))
-        pic.append(NoEscape(r'\node (t3) at ($(group c2r3.center)!0.5!(group c3r3.center)+(0,2.1cm)$) {With Correction (some domain knowledge)};'))
+        pic.append(NoEscape(r'\node (t1) at ($(group c1r1.center)!0.5!(group c1r1.center)+(0,2.1cm)$) {w/o resampling};'))
+        pic.append(NoEscape(r'\node (t2) at ($(group c2r1.center)!0.5!(group c2r1.center)+(0,2.1cm)$) {w resampling};'))
+        pic.append(NoEscape(r'\node (t3) at ($(group c3r1.center)!0.5!(group c3r1.center)+(0,2.1cm)$) {w correction};'))
 
-    doc.generate_pdf('train', clean_tex=False)
+    doc.generate_pdf('gridsearch_plot', clean_tex=False)
