@@ -100,4 +100,4 @@ if __name__ == "__main__":
         pic.append(NoEscape(r'\node (t2) at ($(group c2r1.center)!0.5!(group c2r1.center)+(0,2.1cm)$) {w resampling};'))
         pic.append(NoEscape(r'\node (t3) at ($(group c3r1.center)!0.5!(group c3r1.center)+(0,2.1cm)$) {w correction};'))
 
-    doc.generate_pdf('gridsearch_plot', clean_tex=False)
+    doc.generate_pdf('results/gridsearch_plot', clean_tex=False)

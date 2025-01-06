@@ -61,6 +61,7 @@ IGNORE = [
     'time_sam',
     'time_res',
     'time_cor',
+    'atom_list',
     'num_params',
     ]
 
@@ -159,7 +160,7 @@ def latexify_table(r_name, w_name, clean_tex=True):
     doc.generate_pdf(f'{w_name}', clean_tex=clean_tex)
 
 
-def find_best_backends(evaluation_dir, dataset, model, backends):
+def find_best(evaluation_dir, dataset, model, backends):
     d_frame = pd.DataFrame(0., index=range(len(backends.keys())), columns=COLUMN_NAMES)
     path = evaluation_dir + f'{dataset}/{model}/'
 
@@ -183,11 +184,11 @@ if __name__ == "__main__":
     evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
 
     baselines_qm9 = baseline_models_qm9()
-    ourmodels_qm9 = find_best_backends(evaluation_dir, 'qm9', 'zero_sort', BACKEND_NAMES)
+    ourmodels_qm9 = find_best(evaluation_dir, 'qm9', 'zero_sort', BACKEND_NAMES)
     allmodels_qm9 = pd.concat([baselines_qm9, ourmodels_qm9], ignore_index=True)
 
     baselines_zinc250k = baseline_models_zinc250k()
-    ourmodels_zinc250k = find_best_backends(evaluation_dir, 'zinc250k', 'zero_sort', BACKEND_NAMES)
+    ourmodels_zinc250k = find_best(evaluation_dir, 'zinc250k', 'zero_sort', BACKEND_NAMES)
     allmodels_zinc250k = pd.concat([baselines_zinc250k, ourmodels_zinc250k], ignore_index=True)
 
     allmodels = allmodels_qm9.merge(allmodels_zinc250k, how='left', on='Model', suffixes=('-x', '-y'))
@@ -197,5 +198,5 @@ if __name__ == "__main__":
     allmodels.columns = pd.MultiIndex.from_tuples(columns)
     allmodels.head()
 
-    latexify_style(allmodels, 'unconditional.tab')
-    latexify_table('unconditional.tab', 'unconditional')
+    latexify_style(allmodels, 'results/unconditional.tab')
+    latexify_table('results/unconditional.tab', 'results/unconditional')

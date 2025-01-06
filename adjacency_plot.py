@@ -107,4 +107,4 @@ if __name__ == "__main__":
 
         pic.append(NoEscape(r'\end{groupplot}'))
 
-    doc.generate_pdf('adjacency_plot', clean_tex=False)
+    doc.generate_pdf('results/adjacency_plot', clean_tex=False)
