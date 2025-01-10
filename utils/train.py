@@ -167,17 +167,18 @@ def evaluate(
     x_cor, a_cor = mols2gs(correct_mols(x_sam, a_sam, atom_list), x_sam.size(1), atom_list)
     time_cor = default_timer() - start
 
-    if compute_nll == True:
-        nll_trn_approx = run_epoch(model, loaders['loader_trn'])
-        nll_val_approx = run_epoch(model, loaders['loader_val'])
-        nll_tst_approx = run_epoch(model, loaders['loader_tst'])
-        metrics_neglogliks = {
-            'nll_trn_approx': nll_trn_approx,
-            'nll_val_approx': nll_val_approx,
-            'nll_tst_approx': nll_tst_approx
-        }
-    else:
-        metrics_neglogliks = {}
+    with torch.no_grad():
+        if compute_nll == True:
+            nll_trn_approx = run_epoch(model, loaders['loader_trn'])
+            nll_val_approx = run_epoch(model, loaders['loader_val'])
+            nll_tst_approx = run_epoch(model, loaders['loader_tst'])
+            metrics_neglogliks = {
+                'nll_trn_approx': nll_trn_approx,
+                'nll_val_approx': nll_val_approx,
+                'nll_tst_approx': nll_tst_approx
+            }
+        else:
+            metrics_neglogliks = {}
 
     mols_sam, _, metrics_sam = evaluate_molecules(x_sam, a_sam, loaders, atom_list, True, True, True, preffix='sam_', canonical=canonical)
     mols_res, _, metrics_res = evaluate_molecules(x_res, a_res, loaders, atom_list, True, True, True, preffix='res_', canonical=canonical)
