@@ -94,7 +94,7 @@ def evaluate_molecules(
         metrics = metrics | {
             f'{preffix}fcd_trn'  : metric_f(vsmls, loaders['smiles_trn'], device, canonical),
             f'{preffix}kldiv_trn': metric_k(vsmls, loaders['smiles_trn']),
-            f'{preffix}nspdk_trn': metric_nspdk(vsmls, loaders['smiles_trn']),
+            # f'{preffix}nspdk_trn': metric_nspdk(vsmls, loaders['smiles_trn']),
         }
     if evaluate_val == True:
         metrics = metrics | {

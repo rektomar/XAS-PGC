@@ -25,11 +25,11 @@ if __name__ == '__main__':
     dataset = 'qm9'
 
     backends = [
-        'zero_sort_btree'
+        # 'zero_sort_btree'
         # 'zero_sort_vtree'
         # 'zero_sort_rtree'
         # 'zero_sort_ptree'
-        # 'zero_sort_ctree'
+        'zero_sort_ctree'
     ]
 
     for backend in backends:
@@ -48,6 +48,6 @@ if __name__ == '__main__':
 
         path = train(model, loaders, hyperpars, CHECKPOINT_DIR)
         model = torch.load(path, weights_only=False)
-        metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=False)
+        metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=True)
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))
