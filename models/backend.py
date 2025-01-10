@@ -2,9 +2,9 @@ import os
 import torch
 import itertools
 
-from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
-from hclt.clt import learn_clt
-from hclt.dltm import DLTM
+from models.einsum import Graph, EinsumNetwork, ExponentialFamilyArray
+from models.hclt.clt import learn_clt
+from models.hclt.dltm import DLTM
 
 
 def permute_tril(nd_x, perms_x):
@@ -126,7 +126,7 @@ class CTreeSPN(DLTM):
                  nh
                  ):
 
-        tree_x = learn_clt(x.to('cuda'), 'categorical', 2000, name='tree_x')
+        tree_x = learn_clt(x.to('cuda'), 'categorical', 2000)
         # tree_x = list(range(1, math.ceil(nd / 2))) + [-1] + list(range(math.ceil(nd / 2)-1, nd-1))
 
         super().__init__(tree_x, 'categorical', nh, nc, nk)

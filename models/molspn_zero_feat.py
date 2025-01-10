@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from abc import abstractmethod
-from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
+from models.einsum import Graph, EinsumNetwork, ExponentialFamilyArray
 from models.utils import ohe2cat, cat2ohe
 
 from torch.distributions import Normal, Categorical, MixtureSameFamily

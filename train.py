@@ -25,11 +25,11 @@ if __name__ == '__main__':
     dataset = 'qm9'
 
     backends = [
-        # 'zero_sort_btree'
+        'zero_sort_btree'
         # 'zero_sort_vtree'
         # 'zero_sort_rtree'
         # 'zero_sort_ptree'
-        'zero_sort_ctree'
+        # 'zero_sort_ctree'
     ]
 
     for backend in backends:

@@ -3,7 +3,6 @@ data
 results
 gridsearch.log
 
-hclt
 models/molspn_hclt.py
 models/molspn_marg.py
 config/zinc250k/molspn_hclt_sort.json

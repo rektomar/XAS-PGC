@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from abc import abstractmethod
-from einsum import Graph, EinsumNetwork, ExponentialFamilyArray
+from models.einsum import Graph, EinsumNetwork, ExponentialFamilyArray
 
 def num_bits(n):
     return int((math.log(n-1)/math.log(2)) + 1)

@@ -122,18 +122,6 @@ def print_metrics(metrics):
            f'ms={metrics["m_stab"]:.2f}, ' + \
            f'as={metrics["a_stab"]:.2f}'
 
-def best_model(path):
-    files = os.listdir(path)
-    dfs = []
-    for f in files:
-        data = pd.read_csv(path + f)
-        data['file_path'] = f.replace('.csv', '.pt')
-        dfs.append(data)
-    df = pd.concat(dfs, ignore_index=True)
-    idx = df['nll_tst_approx'].idxmin()
-    return df.loc[idx]['file_path'], df.loc[idx]['nll_val_approx']
-
-
 def resample_invalid_mols(model, num_samples, atom_list, max_atoms, canonical=True, max_attempts=10):
     n = num_samples
     mols = []
