@@ -4,7 +4,20 @@ import pandas as pd
 from pylatex import Document, TikZ, NoEscape
 from gridsearch_evaluate import IGNORE
 
-ORDER_NAMES = ['bft', 'canonical', 'dft', 'rcm', 'unordered']
+ORDER_NAMES = [
+    'bft',
+    'canonical',
+    'dft',
+    'rcm',
+    'unordered'
+]
+BACKEND_NAMES = {
+    'btree': 'BT',
+    'vtree': 'LT',
+    'rtree': 'RT',
+    'ptree': 'RT-S',
+    'ctree': 'HCLT'
+}
 
 
 def find_best(evaluation_dir, dataset, model):
@@ -26,19 +39,16 @@ def find_best(evaluation_dir, dataset, model):
 
     return f_frame_m, f_frame_s
 
-def nextgrouplot(pic, data, ylabel, args=None):
+def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
     ngp = f'\\nextgroupplot[xlabel={{Ordering (-)}}, ylabel={{{ylabel} (-)}}, bar width=4pt,'
     if args is not None:
         ngp += f', {args}]'
     else:
         ngp += r']'
 
-    backends = []
     pic.append(NoEscape(ngp))
-    for i, (backend, values) in enumerate(data.groupby(level=0)):
-        pic.append(NoEscape(f'\\addplot+[ybar, fill=c{i}] plot coordinates {{' + ' '.join(f'({k}, {v})' for k, v in values.droplevel(0).to_dict().items()) + '};'))
-        backends.append(backend)
-    pic.append(NoEscape(r'\legend{' + ', '.join(f'\\strut {x}' for x in backends) + r'}'))
+    for i, (m, s) in enumerate(zip(data_m.groupby(level=0), data_s.groupby(level=0))):
+        pic.append(NoEscape(f'\\addplot+[fill=c{i}, draw=none, error bars/.cd, y dir=both, y explicit] coordinates {{' + ' '.join(f'({k}, {v}) +- ({-dev},{dev})' for (k, v), dev in zip(m[1].droplevel(0).to_dict().items(), s[1].droplevel(0).to_list())) + '};'))
 
 if __name__ == "__main__":
     evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
@@ -46,7 +56,7 @@ if __name__ == "__main__":
     model = 'zero_sort'
     dataset = 'qm9'
     ylim_nspdk = 0.1
-    ylim_fcd = 10.0
+    ylim_fcd = 11.0
 
     doc = Document(documentclass='standalone', document_options=('preview'), geometry_options={'margin': '1cm'})
     doc.packages.append(NoEscape(r'\usepackage{pgfplots}'))
@@ -60,6 +70,8 @@ if __name__ == "__main__":
     doc.packages.append(NoEscape(r'\definecolor{c4}{RGB}{230,171,2}'))
     doc.packages.append(NoEscape(r'\definecolor{c5}{RGB}{166,118,29}'))
 
+    frame_m, frame_s = find_best(evaluation_dir, dataset, model)
+
     with doc.create(TikZ()) as pic:
         pic.append(NoEscape(r'\pgfplotsset{every tick label/.append style={font=\footnotesize}}'))
         pic.append(NoEscape(
@@ -67,29 +79,31 @@ if __name__ == "__main__":
                 r'group style={group size=5 by 1, horizontal sep=55pt, vertical sep=35pt},' +
                 r'ybar,' +
                 r'xtick=data,' +
-                r'enlarge x limits=0.1,' +
-                r'height=5cm,' +
-                r'width=6.4cm,' +
+                # r'enlarge x limits=0.2,' +
+                r'ybar=0pt,' +
+                r'height=7cm,' +
+                r'width=8cm,' +
+                r'ymajorgrids,' +
                 r'symbolic x coords={' + ', '.join(x for x in ORDER_NAMES) + r'},' +
                 r'ymin=0,' +
-                r'ymax=1,' +
-                r'legend style={font=\tiny,fill=none,draw=none,row sep=-3pt},' +
-                r'legend pos=south west,' +
-                r'legend cell align=left,' +
+                r'ymax=1.1,' +
+                r'legend columns=-1,' +
+                r'legend entries={' + ', '.join(f'\\strut {BACKEND_NAMES[x]}' for x in frame_m.index.levels[0]) + r'},' +
+                r'legend to name=named,' +
+                r'legend style={fill=none,draw=none,column sep=3pt},' +
                 r'label style={font=\footnotesize},' +
-                # r'y label style={at={(-0.12,0.5)}},' +
-                # r'x label style={at={(0.5,-0.09)}}' +
+                r'xticklabels={BFT, Morgan, DFT, RCM, Unordered},' +
             r']'
         ))
 
-        frame_m, frame_s = find_best(evaluation_dir, dataset, model)
-
-        nextgrouplot(pic, frame_m['sam_valid'],     'Valid')
-        nextgrouplot(pic, frame_m['sam_unique'],    'Unique')
-        nextgrouplot(pic, frame_m['sam_novel'],     'Novel')
-        nextgrouplot(pic, frame_m['sam_fcd_tst'],   'FCD',   f'ymax={ylim_fcd}')
-        nextgrouplot(pic, frame_m['sam_nspdk_tst'], 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.22,0.5)}}, legend to name=legend')
+        nextgrouplot(pic, frame_m['sam_valid'],     frame_s['sam_valid'],     r'Valid $\uparrow$')
+        nextgrouplot(pic, frame_m['sam_unique'],    frame_s['sam_unique'],    r'Unique $\uparrow$')
+        nextgrouplot(pic, frame_m['sam_novel'],     frame_s['sam_novel'],     r'Novel $\uparrow$')
+        nextgrouplot(pic, frame_m['sam_fcd_tst'],   frame_s['sam_fcd_tst'],   r'FCD $\downarrow$',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.19,0.5)}}')
 
         pic.append(NoEscape(r'\end{groupplot}'))
+
+        pic.append(NoEscape(r'\path (group c3r1.north east) -- node[above]{\ref{named}} (group c3r1.north west);'))
 
     doc.generate_pdf('results/gridsearch_order', clean_tex=False)
