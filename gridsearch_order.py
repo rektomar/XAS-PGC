@@ -77,7 +77,6 @@ if __name__ == "__main__":
         pic.append(NoEscape(
             r'\begin{groupplot}[' +
                 r'group style={group size=5 by 1, horizontal sep=55pt, vertical sep=35pt},' +
-                r'ybar,' +
                 r'xtick=data,' +
                 # r'enlarge x limits=0.2,' +
                 r'ybar=0pt,' +

@@ -148,7 +148,8 @@ def evaluate(
         hyperpars,
         evaluation_dir,
         num_samples=10000,
-        compute_nll=True
+        compute_nll=True,
+        verbose=False,
     ):
     model.eval()
 
@@ -169,9 +170,9 @@ def evaluate(
 
     with torch.no_grad():
         if compute_nll == True:
-            nll_trn_approx = run_epoch(model, loaders['loader_trn'])
-            nll_val_approx = run_epoch(model, loaders['loader_val'])
-            nll_tst_approx = run_epoch(model, loaders['loader_tst'])
+            nll_trn_approx = run_epoch(model, loaders['loader_trn'], verbose=verbose)
+            nll_val_approx = run_epoch(model, loaders['loader_val'], verbose=verbose)
+            nll_tst_approx = run_epoch(model, loaders['loader_tst'], verbose=verbose)
             metrics_neglogliks = {
                 'nll_trn_approx': nll_trn_approx,
                 'nll_val_approx': nll_val_approx,

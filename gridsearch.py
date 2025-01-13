@@ -42,7 +42,7 @@ def unsupervised(dataset, name, par_buffer):
 
     path = train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
     model = torch.load(path, weights_only=False)
-    metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=False)
+    metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=False, verbose=True)
 
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))
 

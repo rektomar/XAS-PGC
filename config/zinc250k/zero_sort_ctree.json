@@ -6,10 +6,10 @@
         "nc": 100,
         "backend": "ctree",
         "bx_hpars": {
-            "nh": 512
+            "nh": 256
         },
         "ba_hpars": {
-            "nh": 512
+            "nh": 256
         },
         "device": "cuda"
     },

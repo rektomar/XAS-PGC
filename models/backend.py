@@ -138,10 +138,10 @@ class CTreeSPN(DLTM):
         return self.backward(num_samples, class_idxs=class_idxs, x=x, mpe=True, mpe_leaf=True).to(dtype=torch.float)
 
 
-def backend_selector(x, a, hpars):
+def backend_selector(x, a, hpars, nk_x_offset=0):
     nd_x = x.size(1)
     nd_a = a.size(1)
-    nk_x = len(x.unique())
+    nk_x = len(x.unique()) - nk_x_offset
     nk_a = len(a.unique())
     nc = hpars['nc']
 

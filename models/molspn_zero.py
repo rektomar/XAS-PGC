@@ -99,7 +99,7 @@ class MolSPNZeroSort(nn.Module):
         return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
 
     @torch.no_grad
-    def sample(self, num_samples: int, chunk_size: int=2000):
+    def sample(self, num_samples: int, chunk_size: int=10000):
         if num_samples > chunk_size:
             x_sam = []
             a_sam = []

@@ -1,7 +1,4 @@
-import os
 import torch
-import pandas as pd
-import numpy as np
 
 from rdkit import Chem
 from fcd_torch import FCD
