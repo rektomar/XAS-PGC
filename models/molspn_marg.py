@@ -63,8 +63,9 @@ class MolSPNMargSort(nn.Module):
 
         if cond_x is not None:
             cond_x -= 1
+            cond_x = cond_x.long()
             mask_x = (cond_x > -1)
-            logs_n = self.logits_n.unsqueeze(0).masked_fill_(mask_x, -torch.inf)
+            logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
 
             self.network_x.set_marginalization_mask(mask_x)
             logs_x = self.network_x(cond_x)
@@ -74,6 +75,7 @@ class MolSPNMargSort(nn.Module):
             logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1)
 
         if cond_a is not None:
+            cond_a = cond_a.long()
             mask_a = (cond_a > -1)
             mask_a = mask_a[:, self.m].view(-1, self.nd_a)
             cond_a = cond_a[:, self.m].view(-1, self.nd_a)
@@ -81,10 +83,10 @@ class MolSPNMargSort(nn.Module):
             self.network_a.set_marginalization_mask(mask_a)
             logs_a = self.network_a(cond_a)
         else:
-            mask_a = torch.ones( num_samples, self.nd_x, self.nd_x, device=self.device, dtype=torch.bool)
-            logs_a = torch.zeros(num_samples, self.nc, device=self.device)
+            mask_a = torch.ones( num_samples, self.nd_a, device=self.device, dtype=torch.bool)
+            logs_a = torch.zeros(num_samples, self.nc,   device=self.device)
 
-        logs_w = logs_x + logs_a + self.logits_w.expand(num_samples, -1)
+        logs_w = logs_x + logs_a + self.logits_w.unsqueeze(0)
 
         samp_n = torch.distributions.Categorical(logits=logs_n).sample()
         samp_w = torch.distributions.Categorical(logits=logs_w).sample()
@@ -92,10 +94,13 @@ class MolSPNMargSort(nn.Module):
         mask_xn = torch.arange(self.nd_x, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
         mask_an = (mask_xn.unsqueeze(2) * mask_xn.unsqueeze(1))[:, self.m].view(-1, self.nd_a)
         mask_xx = mask_x + mask_xn
-        mask_aa = mask_a * mask_an
+        mask_aa = mask_a + mask_an
 
-        x = self.network_x.sample(num_samples, class_idxs=samp_w, x=cond_x.long())
-        l = self.network_a.sample(num_samples, class_idxs=samp_w, x=cond_a.long())
+        x = self.network_x.sample(num_samples, class_idxs=samp_w, x=cond_x)
+        l = self.network_a.sample(num_samples, class_idxs=samp_w, x=cond_a)
+        print("------------")
+        print((l == 4).sum())
+
         x[~mask_xx] = -1
         l[~mask_aa] = 0
 

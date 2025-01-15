@@ -1,15 +1,15 @@
 {
     "dataset": "moses",
-    "model": "zero_sort",
+    "model": "marg_sort",
     "order": "canonical",
     "model_hpars": {
-        "nc": 100,
+        "nc": 512,
         "backend": "ctree",
         "bx_hpars": {
-            "nh": 128
+            "nh": 512
         },
         "ba_hpars": {
-            "nh": 128
+            "nh": 512
         },
         "device": "cuda"
     },

@@ -12,7 +12,7 @@ BOND_DECODER = {1: Chem.BondType.SINGLE, 2: Chem.BondType.DOUBLE, 3: Chem.BondTy
 
 
 def unpad(x, a):
-    atoms_exist = ~((a > 0).all(dim=0) + (x == 0))
+    atoms_exist = (a.sum(dim=0) > 0) & (x != 0)
     atoms = x[atoms_exist]
     bonds = a[atoms_exist, :][:, atoms_exist]
     return atoms, bonds
