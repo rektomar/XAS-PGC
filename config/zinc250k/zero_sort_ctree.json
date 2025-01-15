@@ -1,9 +1,9 @@
 {
     "dataset": "zinc250k",
-    "model": "zero_sort",
+    "model": "marg_sort",
     "order": "canonical",
     "model_hpars": {
-        "nc": 100,
+        "nc": 256,
         "backend": "ctree",
         "bx_hpars": {
             "nh": 256
@@ -21,7 +21,7 @@
             0.82
         ]
     },
-    "num_epochs": 1,
+    "num_epochs": 10,
     "batch_size": 256,
     "seed": 0
 }

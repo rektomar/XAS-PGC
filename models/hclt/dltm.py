@@ -150,6 +150,7 @@ class DLTM(torch.nn.Module):
                 leaf_log_prob = Binomial(self.num_categories - 1, leaf_param, validate_args=False).log_prob(x.unsqueeze(2))
             case 'categorical':
                 index = x if x.dtype == torch.long else x.long()
+                index = index.clamp(0)
                 leaf_log_prob = leaf_param.log().transpose(1, 2)[range(self.num_features), index]
             case 'gaussian':
                 leaf_log_prob = Normal(leaf_param[:, 0], leaf_param[:, 1], validate_args=False).log_prob(x.unsqueeze(2))
@@ -218,7 +219,6 @@ class DLTM(torch.nn.Module):
                 raise NotImplementedError('leaf_type not implemented.')
 
         if x is not None:
-            nan_mask = x.isnan()
-            samples = x.masked_fill(nan_mask, 0) + nan_mask * samples
+            samples[self.marginalization_mask] = x[self.marginalization_mask]
 
         return samples

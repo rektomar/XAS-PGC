@@ -4,9 +4,10 @@ import torch
 def one_hot(x, K, dtype=torch.float):
     """One hot encoding"""
     with torch.no_grad():
-        ind = torch.zeros(x.shape + (K,), dtype=dtype, device=x.device)
-        ind.scatter_(-1, x.unsqueeze(-1), 1)
-        return ind
+        m = (x > -1).unsqueeze(-1)
+        o = torch.zeros(x.shape + (K,), dtype=dtype, device=x.device)
+        o.scatter_(-1, m * x.unsqueeze(-1), 1)
+        return m * o
 
 
 class ExponentialFamilyArray(torch.nn.Module):

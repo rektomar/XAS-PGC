@@ -30,7 +30,10 @@ def categorical_mutual_info(
     joint_counts = torch.zeros(num_features, num_features, num_categories ** 2, dtype=torch.long, device=data.device)
     for _, chunk in enumerate(data.split(chunk_size)):
         joint_values = chunk.t().unsqueeze(1) * num_categories + chunk.t().unsqueeze(0)
-        joint_counts.scatter_add_(-1, joint_values.long(), torch.ones_like(joint_values))
+        m = (chunk == -1)
+        m = m.t().unsqueeze(1) + m.t().unsqueeze(0)
+        joint_values[m] = 0
+        joint_counts.scatter_add_(-1, joint_values.long(), (~m).long())
     joint_counts = joint_counts.view(num_features, num_features, num_categories, num_categories)
     marginal_counts = joint_counts[idx_features, idx_features][:, idx_categories, idx_categories]
 
