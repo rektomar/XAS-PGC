@@ -98,8 +98,6 @@ class MolSPNMargSort(nn.Module):
 
         x = self.network_x.sample(num_samples, class_idxs=samp_w, x=cond_x)
         l = self.network_a.sample(num_samples, class_idxs=samp_w, x=cond_a)
-        print("------------")
-        print((l == 4).sum())
 
         x[~mask_xx] = -1
         l[~mask_aa] = 0
