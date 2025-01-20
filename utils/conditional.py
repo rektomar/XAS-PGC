@@ -53,7 +53,7 @@ def sample_conditional(model, x, a, submol_size, num_samples, max_mol_size, atom
     return xc, ac, mol_sample, sml_sample
 
 def create_observed_mol(smile, max_mol_size, atom_list, device='cuda'):
-    """Create an submolecule to condition on.
+    """Create a submolecule to condition on.
     Parameters:
         smile             (str): smile of submolecule to condition on
         atom_list   (list[int]): list of feasible atom ids
@@ -76,20 +76,32 @@ def filter_molecules(smls, patt_sml):
     fsmls = list(filter(f, smls))
     return fsmls
 
-def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, num_samples, batch_size=256, order='canonical'):
-    print(f'Evaluating "{patt_sml}" pattern on {dataset_name} dataset')
-    loader_trn, _ = load_dataset(dataset_name, batch_size, split=[0.8, 0.2], order=order)
-    train_smls = [x['s'] for x in loader_trn.dataset]
+def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, num_samples, batch_size=256, seed=0, order='canonical'):
+    loaders = load_dataset(dataset_name, batch_size, split=[0.8, 0.1, 0.1], order=order, seed=seed)
 
     xx, aa, submol_size = create_observed_mol(patt_sml, max_atoms, atom_list)
     xc, ac, _, _ = sample_conditional(model, xx, aa, submol_size, num_samples, max_atoms, atom_list)
 
-    train_fsmls = filter_molecules(train_smls, patt_sml)
-    occ_pct = 100*len(train_fsmls)/len(train_smls)
-    metrics = evaluate_molecules(xc, ac, train_fsmls, atom_list, metrics_only=True)
-    print(f'\tPattern occurence in training dataset: {occ_pct:.2f}%')
-    print('\t', end='')
-    print_metrics(metrics)
+    fsmls_trn = filter_molecules(loaders['smiles_trn'], patt_sml)
+    fsmls_val = filter_molecules(loaders['smiles_val'], patt_sml)
+    fsmls_tst = filter_molecules(loaders['smiles_tst'], patt_sml)
+
+    occs = {}
+    occs['occ_trn'] = len(fsmls_trn)/len(loaders['smiles_trn']) if len(loaders['smiles_trn']) != 0 else 0
+    occs['occ_val'] = len(fsmls_val)/len(loaders['smiles_val']) if len(loaders['smiles_val']) != 0 else 0
+    occs['occ_tst'] = len(fsmls_tst)/len(loaders['smiles_tst']) if len(loaders['smiles_tst']) != 0 else 0
+
+    loaders['smiles_trn'] = fsmls_trn
+    loaders['smiles_val'] = fsmls_val
+    loaders['smiles_tst'] = fsmls_tst
+
+    metrics = evaluate_molecules(xc, ac, loaders, atom_list, evaluate_trn=False,
+                                                             evaluate_val=False,
+                                                             evaluate_tst=False,
+                                                             metrics_only=True)
+    metrics = metrics | occs
+
+    return metrics
 
 def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_atoms, atom_list):
     assert num_to_show < num_to_sample
@@ -102,10 +114,8 @@ def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_at
         valid_mols, valid_smls = zip(*filtered)
         valid_mols, valid_smls = list(valid_mols), list(valid_smls)
 
-        # small molecule filtering
-        small_smls = [sml for mol, sml in zip(valid_mols[num_to_show:], valid_smls[num_to_show:]) if len(mol.GetAtoms())-submol_size<submol_size-1]
-        # print(valid_smls, small_smls)
-        final_smls = valid_smls[:num_to_show] if len(small_smls) < 2 else valid_smls[:num_to_show-2] + small_smls[:2]
+        # TODO: num_to_show > num_valid case
+        final_smls = valid_smls[:num_to_show]
         print(f"Pattern {patt}: {final_smls}")
 
         cond_smls.append(final_smls)
