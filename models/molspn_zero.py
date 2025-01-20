@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from models.backend import backend_selector
+from typing import Optional
 
 
 class MolSPNZeroSort(nn.Module):
@@ -24,6 +25,7 @@ class MolSPNZeroSort(nn.Module):
         self.network_a = network_a
 
         device = hpars['device']
+        self.nc = hpars['nc']
 
         self.logits_n = nn.Parameter(torch.randn(          nd_x, device=device), requires_grad=True)
         self.logits_w = nn.Parameter(torch.randn(1, hpars['nc'], device=device), requires_grad=True)
@@ -35,11 +37,9 @@ class MolSPNZeroSort(nn.Module):
     def device(self):
         return next(iter(self.parameters())).device
 
-    def _forward(self, x, a, mx=None, ma=None):
-        if ma is not None:
-            ma = ma[:, self.m].view(-1, self.nd_a)
-        self.network_x.set_marginalization_mask(mx)
-        self.network_a.set_marginalization_mask(ma)
+    def forward(self, x, a):
+        # self.network_x.set_marginalization_mask(None)
+        # self.network_a.set_marginalization_mask(None)
 
         n = (x > 0).sum(dim=1) - 1
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
@@ -47,36 +47,59 @@ class MolSPNZeroSort(nn.Module):
         ll_card = dist_n.log_prob(n)
         ll_x = self.network_x(x)
         ll_a = self.network_a(a[:, self.m].view(-1, self.nd_a))
+        logits_w = torch.log_softmax(self.logits_w, dim=1)
 
-        return ll_card, ll_x, ll_a, torch.log_softmax(self.logits_w, dim=1)
-
-    def forward(self, x, a):
-        ll_card, ll_x, ll_a, logits_w = self._forward(x, a)
         return ll_card + torch.logsumexp(ll_x + ll_a + logits_w, dim=1)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
-    def __sample(self, logits_w: torch.Tensor, logits_n: torch.Tensor, num_samples: int, xo=None, ao=None, mx=None, ma=None):
-        if ma is not None:
-            ma = ma[:, self.m].view(-1, self.nd_a)
-        if ao is not None:
-            ao = ao[:, self.m].view(-1, self.nd_a)
-        self.network_x.set_marginalization_mask(mx)
-        self.network_a.set_marginalization_mask(ma)
+    @torch.no_grad
+    def _sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None):
+        if cond_x is not None or cond_a is not None:
+            if len(cond_x) == len(cond_a):
+                num_samples = len(cond_x)
+            else:
+                raise 'len(cond_x) and len(cond_a) are not equal.'
+        else:
+            self.network_x.set_marginalization_mask(None)
+            self.network_a.set_marginalization_mask(None)
 
-        dist_n = torch.distributions.Categorical(logits=logits_n)
-        dist_w = torch.distributions.Categorical(logits=logits_w)
-        samp_n = dist_n.sample((num_samples, ))
-        samp_w = dist_w.sample((num_samples, )).squeeze(-1)
+        if cond_x is not None:
+            mask_x = (cond_x > 0)
+            logs = self.logs_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
 
-        mask_x = torch.arange(self.nd_x, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
-        mask_a = (mask_x.unsqueeze(2) * mask_x.unsqueeze(1))[:, self.m].view(-1, self.nd_a)
+            self.network_x.set_marginalization_mask(mask_x)
+            logs_x = self.network_x(cond_x)
+        else:
+            mask_x = torch.zeros(num_samples, self.nd_x, device=self.device, dtype=torch.bool)
+            logs_x = torch.zeros(num_samples, self.nc,   device=self.device)
+            logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1)
 
-        x = self.network_x.sample(num_samples, class_idxs=samp_w, x=xo)
-        l = self.network_a.sample(num_samples, class_idxs=samp_w, x=ao)
-        x[~mask_x] = 0
-        l[~mask_a] = 0
+        if cond_a is not None:
+            mask_a = (cond_a > -1)
+            mask_a = mask_a[:, self.m].view(-1, self.nd_a)
+            cond_a = cond_a[:, self.m].view(-1, self.nd_a)
+
+            self.network_a.set_marginalization_mask(mask_a)
+            logs_a = self.network_a(cond_a)
+        else:
+            mask_a = torch.zeros(num_samples, self.nd_a, device=self.device, dtype=torch.bool)
+            logs_a = torch.zeros(num_samples, self.nc,   device=self.device)
+
+        logs_w = logs_x + logs_a + self.logits_w
+
+        samp_n = torch.distributions.Categorical(logits=logs_n).sample()
+        samp_w = torch.distributions.Categorical(logits=logs_w).sample()
+
+        mask_xn = torch.arange(self.nd_x, device=self.device).unsqueeze(0) <= samp_n.unsqueeze(1)
+        mask_an = (mask_xn.unsqueeze(2) * mask_xn.unsqueeze(1))[:, self.m].view(-1, self.nd_a)
+
+        x = self.network_x.sample(num_samples, class_idxs=samp_w, x=cond_x)
+        l = self.network_a.sample(num_samples, class_idxs=samp_w, x=cond_a)
+
+        x[~mask_xn] = 0
+        l[~mask_an] = 0
 
         a = torch.zeros((num_samples, self.nd_x, self.nd_x), device=self.device)
         a[:, self.m] = l
@@ -84,76 +107,21 @@ class MolSPNZeroSort(nn.Module):
 
         return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
 
-    def _sample(self, num_samples):
-        return self.__sample(self.logits_w, self.logits_n, num_samples)
-
-    def _sample_conditional(self, x: torch.Tensor, a: torch.Tensor, mx: torch.Tensor, ma: torch.Tensor, num_samples: int):
-        # for single observation only
-        logits_n = self.logits_n.masked_fill(mx.squeeze(), -torch.inf)
-        _, ll_x, ll_a, logits_w = self._forward(x, a, mx, ma)
-        logits_w = logits_w + ll_x + ll_a
-
-        xo, ao, mx, ma = x.expand(num_samples, -1), a.expand(num_samples, -1, -1), mx.expand(num_samples, -1), ma.expand(num_samples, -1, -1)
-
-        x, a = self.__sample(logits_w, logits_n, num_samples, xo=xo, ao=ao, mx=mx, ma=ma)
-        return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
-
     @torch.no_grad
-    def sample(self, num_samples: int, chunk_size: int=10000):
-        if num_samples > chunk_size:
-            x_sam = []
-            a_sam = []
-            chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
-            for n in chunks:
-                x, a = self._sample(n)
-                x_sam.append(x)
-                a_sam.append(a)
-            x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
-        else:
-            x_sam, a_sam = self._sample(num_samples)
-
-        return x_sam, a_sam
-    
-    @torch.no_grad
-    def sample_conditional(self, x: torch.Tensor, a: torch.Tensor, mx: torch.Tensor, ma: torch.Tensor, num_samples: int, chunk_size: int=2000):
-        if num_samples > chunk_size:
-            x_sam = []
-            a_sam = []
-            chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
-            for n in chunks:
-                x, a = self._sample_conditional(x, a, mx, ma, n)
-                x_sam.append(x)
-                a_sam.append(a)
-            x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
-        else:
-            x_sam, a_sam = self._sample_conditional(x, a, mx, ma, num_samples)
-
-        return x_sam, a_sam
-
-    # to be only 'sample' function to remain
-    # need to change conditional sampling pipeline for this 
-    @torch.no_grad
-    def sample_all(self, num_samples: int, x: torch.Tensor=None, a: torch.Tensor=None, mx: torch.Tensor=None, ma: torch.Tensor=None, chunk_size: int=2000):
-        conditional = x is not None and a is not None and mx is not None and ma is not None
-
-        def _sample_wrapper(num):
-            if conditional:
-                # cond. works for single input observation only
-                return self._sample_conditional(x, a, mx, ma, num)
-            else:
-                return self._sample(num)
+    def sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None, chunk_size: int=2000):
     
         if num_samples > chunk_size:
             x_sam = []
             a_sam = []
             chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
             for n in chunks:
-                x, a = _sample_wrapper(n)
+                # TODO: fix chunking for conditional sampling
+                x, a = self._sample(n, cond_x=cond_x, cond_a=cond_a)
                 x_sam.append(x)
                 a_sam.append(a)
             x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
         else:
-            x_sam, a_sam = _sample_wrapper(n)
+            x_sam, a_sam = self._sample(num_samples, cond_x=cond_x, cond_a=cond_a)
 
         return x_sam, a_sam
 
