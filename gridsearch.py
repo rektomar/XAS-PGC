@@ -31,7 +31,7 @@ def unsupervised(dataset, name, par_buffer):
     hyperpars = par_buffer[int(os.environ["SLURM_ARRAY_TASK_ID"])]
     hyperpars['atom_list'] = MOLECULAR_DATASETS[dataset]['atom_list']
 
-    loaders = load_dataset(dataset, hyperpars['batch_size'], [0.8, 0.1, 0.1], order=hyperpars['order'])
+    loaders = load_dataset(dataset, hyperpars['batch_size'], [0.8, 0.1, 0.1], seed=hyperpars['seed'], order=hyperpars['order'])
 
     model = MODELS[name](loaders['loader_trn'], hyperpars['model_hpars'])
     print(dataset)
