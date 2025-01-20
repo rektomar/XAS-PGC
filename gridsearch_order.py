@@ -4,13 +4,13 @@ import pandas as pd
 from pylatex import Document, TikZ, NoEscape
 from gridsearch_evaluate import IGNORE
 
-ORDER_NAMES = [
-    'bft',
-    'canonical',
-    'dft',
-    'rcm',
-    'unordered'
-]
+ORDER_NAMES = {
+    'bft': 'BFT',
+    'canonical': 'MCA',
+    'dft': 'DFT',
+    'rcm': 'RCM',
+    'unordered': 'Unordered'
+}
 BACKEND_NAMES = {
     'btree': 'BT',
     'vtree': 'LT',
@@ -76,14 +76,14 @@ if __name__ == "__main__":
         pic.append(NoEscape(r'\pgfplotsset{every tick label/.append style={font=\footnotesize}}'))
         pic.append(NoEscape(
             r'\begin{groupplot}[' +
-                r'group style={group size=5 by 1, horizontal sep=55pt, vertical sep=35pt},' +
+                r'group style={group size=1 by 5, horizontal sep=55pt, vertical sep=35pt},' +
                 r'xtick=data,' +
                 # r'enlarge x limits=0.2,' +
                 r'ybar=0pt,' +
-                r'height=7cm,' +
-                r'width=8cm,' +
+                r'height=4.5cm,' +
+                r'width=7cm,' +
                 r'ymajorgrids,' +
-                r'symbolic x coords={' + ', '.join(x for x in ORDER_NAMES) + r'},' +
+                r'symbolic x coords={' + ', '.join(x for x in ORDER_NAMES.keys()) + r'},' +
                 r'ymin=0,' +
                 r'ymax=1.1,' +
                 r'legend columns=-1,' +
@@ -99,10 +99,10 @@ if __name__ == "__main__":
         nextgrouplot(pic, frame_m['sam_unique'],    frame_s['sam_unique'],    r'Unique $\uparrow$')
         nextgrouplot(pic, frame_m['sam_novel'],     frame_s['sam_novel'],     r'Novel $\uparrow$')
         nextgrouplot(pic, frame_m['sam_fcd_tst'],   frame_s['sam_fcd_tst'],   r'FCD $\downarrow$',   f'ymax={ylim_fcd}')
-        nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.19,0.5)}}')
+        nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
 
         pic.append(NoEscape(r'\end{groupplot}'))
 
-        pic.append(NoEscape(r'\path (group c3r1.north east) -- node[above]{\ref{named}} (group c3r1.north west);'))
+        pic.append(NoEscape(r'\path (group c1r1.north east) -- node[above]{\ref{named}} (group c1r1.north west);'))
 
     doc.generate_pdf('results/gridsearch_order', clean_tex=False)

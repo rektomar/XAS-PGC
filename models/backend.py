@@ -126,7 +126,7 @@ class CTreeSPN(DLTM):
                  nh
                  ):
 
-        tree_x = learn_clt(x.to('cuda'), 'categorical', 2000)
+        tree_x = learn_clt(x.to('cuda'), 'categorical', 10)
         # tree_x = list(range(1, math.ceil(nd / 2))) + [-1] + list(range(math.ceil(nd / 2)-1, nd-1))
 
         super().__init__(tree_x, 'categorical', nh, nc, nk)
