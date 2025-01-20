@@ -63,6 +63,7 @@ IGNORE = [
     'time_cor',
     'atom_list',
     'num_params',
+    'model_path'
     ]
 
 COLUMN_NAMES = [

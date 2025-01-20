@@ -147,6 +147,7 @@ def evaluate(
         loaders,
         hyperpars,
         evaluation_dir,
+        model_path,
         num_samples=10000,
         compute_nll=True,
         verbose=False,
@@ -199,6 +200,7 @@ def evaluate(
         os.makedirs(dir)
     path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
     df = pd.DataFrame.from_dict({**flatten_dict(backend_hpars_prefix(hyperpars)), **metrics}, 'index').transpose()
+    df['model_path'] = model_path
     df.to_csv(path + '.csv', index=False)
 
     dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'

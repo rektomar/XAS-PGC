@@ -48,8 +48,8 @@ if __name__ == '__main__':
         print(f'The number of parameters is {count_parameters(model)}.')
         print(hyperpars['order'])
 
-        path = train(model, loaders, hyperpars, CHECKPOINT_DIR)
-        model = torch.load(path, weights_only=False)
-        metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=True)
+        model_path = train(model, loaders, hyperpars, CHECKPOINT_DIR)
+        model = torch.load(model_path, weights_only=False)
+        metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, model_path, compute_nll=True)
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))
