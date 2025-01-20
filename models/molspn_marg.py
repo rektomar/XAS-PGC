@@ -54,7 +54,7 @@ class MolSPNMargSort(nn.Module):
         return self(x, a).mean()
 
     @torch.no_grad
-    def sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None):
+    def _sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None):
         if cond_x is not None or cond_a is not None:
             if len(cond_x) == len(cond_a):
                 num_samples = len(cond_x)
@@ -63,7 +63,7 @@ class MolSPNMargSort(nn.Module):
 
         if cond_x is not None:
             cond_x -= 1
-            cond_x = cond_x.long()
+            # cond_x = cond_x.long()
             mask_x = (cond_x > -1)
             logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
 
@@ -75,7 +75,7 @@ class MolSPNMargSort(nn.Module):
             logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1)
 
         if cond_a is not None:
-            cond_a = cond_a.long()
+            # cond_a = cond_a.long()
             mask_a = (cond_a > -1)
             mask_a = mask_a[:, self.m].view(-1, self.nd_a)
             cond_a = cond_a[:, self.m].view(-1, self.nd_a)
@@ -109,6 +109,24 @@ class MolSPNMargSort(nn.Module):
         x += 1
 
         return x.to(device='cpu', dtype=torch.int), a.to(device='cpu', dtype=torch.int)
+
+    @torch.no_grad
+    def sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None, chunk_size: int=2000):
+    
+        if num_samples > chunk_size:
+            x_sam = []
+            a_sam = []
+            chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
+            for n in chunks:
+                # TODO: fix chunking for conditional sampling
+                x, a = self._sample(n, cond_x=cond_x, cond_a=cond_a)
+                x_sam.append(x)
+                a_sam.append(a)
+            x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
+        else:
+            x_sam, a_sam = self._sample(num_samples, cond_x=cond_x, cond_a=cond_a)
+
+        return x_sam, a_sam
 
 
 MODELS = {
