@@ -80,6 +80,8 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
     loaders = load_dataset(dataset_name, batch_size, split=[0.8, 0.1, 0.1], order=order, seed=seed)
 
     xx, aa, submol_size = create_observed_mol(patt_sml, max_atoms, atom_list)
+    xx = xx.expand(num_samples, -1).clone()
+    aa = aa.expand(num_samples, -1, -1).clone()
     xc, ac, _, _ = sample_conditional(model, xx, aa, submol_size, num_samples, max_atoms, atom_list)
 
     fsmls_trn = filter_molecules(loaders['smiles_trn'], patt_sml)
