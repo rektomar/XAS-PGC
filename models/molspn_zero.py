@@ -105,16 +105,28 @@ class MolSPNZeroSort(nn.Module):
 
     @torch.no_grad
     def sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None, chunk_size: int=2000):
+        conditional = False
+        n_cumsum = 0
+        if cond_x is not None and cond_a is not None:
+            conditional = True
+            if len(cond_x) == len(cond_a):
+                num_samples = len(cond_x)
+                print(f'[INFO] Changed num_samples to {num_samples} because of the specified condition.')
+            else:
+                raise 'len(cond_x) and len(cond_a) are not equal.'
     
         if num_samples > chunk_size:
             x_sam = []
             a_sam = []
             chunks = num_samples // chunk_size*[chunk_size] + ([num_samples % chunk_size] if num_samples % chunk_size > 0 else [])
             for n in chunks:
-                # TODO: fix chunking for conditional sampling
-                x, a = self._sample(n, cond_x=cond_x, cond_a=cond_a)
+                if conditional:
+                    chunk_cond_x = cond_x[n_cumsum:n_cumsum+n]
+                    chunk_cond_a = cond_a[n_cumsum:n_cumsum+n]
+                x, a = self._sample(n, cond_x=chunk_cond_x, cond_a=chunk_cond_a)
                 x_sam.append(x)
                 a_sam.append(a)
+                n_cumsum += n
             x_sam, a_sam = torch.cat(x_sam), torch.cat(a_sam)
         else:
             x_sam, a_sam = self._sample(num_samples, cond_x=cond_x, cond_a=cond_a)
