@@ -20,10 +20,11 @@ MODELS = {
     **molspn_marg.MODELS
     }
 
+BASE_DIR = '/mnt/data/density_learning/molspn/'
 
-CHECKPOINT_DIR = 'results/gridsearch/model_checkpoint/'
-EVALUATION_DIR = 'results/gridsearch/model_evaluation/'
-OUTPUTLOGS_DIR = 'results/gridsearch/model_outputlogs/'
+CHECKPOINT_DIR = f'{BASE_DIR}results/gridsearch/model_checkpoint/'
+EVALUATION_DIR = f'{BASE_DIR}results/gridsearch/model_evaluation/'
+OUTPUTLOGS_DIR = f'{BASE_DIR}results/gridsearch/model_outputlogs/'
 
 
 def unsupervised(dataset, name, par_buffer):
@@ -53,7 +54,7 @@ def submit_job(dataset, model, par_buffer, device, max_sub):
     outputlogs_dir = OUTPUTLOGS_DIR + f'{dataset}/'
     par_buffer_str = str(par_buffer).replace("'", '"')
     cmd_python = "from gridsearch import unsupervised\n" + f'unsupervised("{dataset}", "{model}", {par_buffer_str})'
-    cmd_sbatch = "source activate molspn\n" + f"python -c '{cmd_python}'"
+    cmd_sbatch = "conda activate molspn\n" + f"python -c '{cmd_python}'"
 
     while True:
         run_squeue = subprocess.run(['squeue', f'--user={os.environ["USER"]}', '-h', '-r'], stdout=subprocess.PIPE)
