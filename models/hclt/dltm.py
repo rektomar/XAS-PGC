@@ -219,6 +219,6 @@ class DLTM(torch.nn.Module):
                 raise NotImplementedError('leaf_type not implemented.')
 
         if x is not None:
-            samples[self.marginalization_mask] = x[self.marginalization_mask]
+            samples[self.marginalization_mask] = x[self.marginalization_mask].type_as(samples)
 
         return samples

@@ -21,19 +21,22 @@ MOLECULAR_DATASETS = {
         'dataset': 'qm9',
         'max_atoms': 9,
         'max_types': 5,
-        'atom_list': [0, 6, 7, 8, 9]
+        'atom_list': [0, 6, 7, 8, 9],
+        'valency_dict': {6:4, 7:3, 8:2, 9:1}
     },
     'zinc250k': {
         'dataset': 'zinc250k',
         'max_atoms': 38,
         'max_types': 10,
-        'atom_list': [0, 6, 7, 8, 9, 15, 16, 17, 35, 53]
+        'atom_list': [0, 6, 7, 8, 9, 15, 16, 17, 35, 53],
+        'valency_dict': {6:4, 7:3, 8:2, 9:1, 15:3, 16:2, 17:1, 35:1, 53:1}
     },
     'moses': {
         'dataset': 'moses',
         'max_atoms': 27,
         'max_types': 8,
-        'atom_list': [0, 6, 7, 8, 9, 16, 17, 35]
+        'atom_list': [0, 6, 7, 8, 9, 16, 17, 35],
+        'valency_dict': {6:4, 7:3, 8:2, 9:1, 16:2, 17:1, 35:1}
     },
     'guacamol': {
         'dataset': 'guacamol',

@@ -56,8 +56,8 @@ def g2mol(x, a, atom_list):
                 assert len(valence) == 2
                 i = valence[0]
                 v = valence[1]
-                a = mol.GetAtomWithIdx(i).GetAtomicNum()
-                if a in (7, 8, 16) and (v - VALENCY_LIST[a]) == 1:
+                n = mol.GetAtomWithIdx(i).GetAtomicNum()
+                if n in (7, 8, 16) and (v - VALENCY_LIST[n]) == 1:
                     mol.GetAtomWithIdx(i).SetFormalCharge(1)
     return mol
 
@@ -107,6 +107,7 @@ def correct_mols(x, a, atom_list):
 def get_valid(sml):
     mol = Chem.MolFromSmiles(sml)
     if mol is not None and '.' not in sml:
+        Chem.Kekulize(mol)
         return mol, sml
     else:
         return None

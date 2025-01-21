@@ -83,7 +83,7 @@ class MolSPNMargSort(nn.Module):
             self.network_a.set_marginalization_mask(mask_a)
             logs_a = self.network_a(cond_a)
         else:
-            mask_a = torch.ones( num_samples, self.nd_a, device=self.device, dtype=torch.bool)
+            mask_a = torch.zeros(num_samples, self.nd_a, device=self.device, dtype=torch.bool)
             logs_a = torch.zeros(num_samples, self.nc,   device=self.device)
 
         logs_w = logs_x + logs_a + self.logits_w.unsqueeze(0)

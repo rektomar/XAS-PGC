@@ -3,13 +3,13 @@
     "model": "marg_sort",
     "order": "canonical",
     "model_hpars": {
-        "nc": 4096,
+        "nc": 512,
         "backend": "ctree",
         "bx_hpars": {
-            "nh": 4096
+            "nh": 512
         },
         "ba_hpars": {
-            "nh": 4096
+            "nh": 512
         },
         "device": "cuda"
     },
