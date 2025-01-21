@@ -11,11 +11,13 @@ from utils.train import train, evaluate, dict2str, flatten_dict, backend_hpars_p
 from utils.evaluate import count_parameters
 
 from models import molspn_zero
+from models import molspn_marg
 
 # nohup python -m gridsearch > gridsearch.log &
 
 MODELS = {
-    **molspn_zero.MODELS
+    **molspn_zero.MODELS,
+    **molspn_marg.MODELS
     }
 
 
