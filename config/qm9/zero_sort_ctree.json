@@ -1,6 +1,6 @@
 {
     "dataset": "qm9",
-    "model": "marg_sort",
+    "model": "zero_sort",
     "order": "canonical",
     "model_hpars": {
         "nc": 512,

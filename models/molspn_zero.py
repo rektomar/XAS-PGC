@@ -24,39 +24,35 @@ class MolSPNZeroSort(nn.Module):
         self.network_x = network_x
         self.network_a = network_a
 
-        device = hpars['device']
         self.nc = hpars['nc']
+        self.device = hpars['device']
 
-        self.logits_n = nn.Parameter(torch.randn(          nd_x, device=device), requires_grad=True)
-        self.logits_w = nn.Parameter(torch.randn(1, hpars['nc'], device=device), requires_grad=True)
-        self.m = torch.tril(torch.ones(self.nd_x, self.nd_x, dtype=torch.bool, device=device), diagonal=-1)
+        self.logits_n = nn.Parameter(torch.randn(nd_x,    device=self.device), requires_grad=True)
+        self.logits_w = nn.Parameter(torch.randn(self.nc, device=self.device), requires_grad=True)
+        self.m = torch.tril(torch.ones(self.nd_x, self.nd_x, dtype=torch.bool, device=self.device), diagonal=-1)
 
-        self.to(device)
-    
-    @property
-    def device(self):
-        return next(iter(self.parameters())).device
+        self.to(self.device)
 
-    def forward(self, x, a):
-        # self.network_x.set_marginalization_mask(None)
-        # self.network_a.set_marginalization_mask(None)
+    def forward(self, x: torch.Tensor, a: torch.Tensor):
+        self.network_x.set_marginalization_mask(None)
+        self.network_a.set_marginalization_mask(None)
 
         n = (x > 0).sum(dim=1) - 1
         dist_n = torch.distributions.Categorical(logits=self.logits_n)
 
-        ll_card = dist_n.log_prob(n)
+        ll_c = dist_n.log_prob(n)
         ll_x = self.network_x(x)
         ll_a = self.network_a(a[:, self.m].view(-1, self.nd_a))
-        logits_w = torch.log_softmax(self.logits_w, dim=1)
+        ll_w = torch.log_softmax(self.logits_w, dim=0).unsqueeze(0)
 
-        return ll_card + torch.logsumexp(ll_x + ll_a + logits_w, dim=1)
+        return ll_c + torch.logsumexp(ll_x + ll_a + ll_w, dim=1)
 
     def logpdf(self, x, a):
         return self(x, a).mean()
 
     @torch.no_grad
     def _sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None):
-        if cond_x is not None or cond_a is not None:
+        if cond_x is not None and cond_a is not None:
             if len(cond_x) == len(cond_a):
                 num_samples = len(cond_x)
             else:
@@ -67,7 +63,7 @@ class MolSPNZeroSort(nn.Module):
 
         if cond_x is not None:
             mask_x = (cond_x > 0)
-            logs = self.logs_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
+            logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
 
             self.network_x.set_marginalization_mask(mask_x)
             logs_x = self.network_x(cond_x)
@@ -87,7 +83,7 @@ class MolSPNZeroSort(nn.Module):
             mask_a = torch.zeros(num_samples, self.nd_a, device=self.device, dtype=torch.bool)
             logs_a = torch.zeros(num_samples, self.nc,   device=self.device)
 
-        logs_w = logs_x + logs_a + self.logits_w
+        logs_w = logs_x + logs_a + self.logits_w.unsqueeze(0)
 
         samp_n = torch.distributions.Categorical(logits=logs_n).sample()
         samp_w = torch.distributions.Categorical(logits=logs_w).sample()

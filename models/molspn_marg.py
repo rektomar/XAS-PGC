@@ -55,7 +55,7 @@ class MolSPNMargSort(nn.Module):
 
     @torch.no_grad
     def _sample(self, num_samples: int=1, cond_x: Optional[torch.Tensor]=None, cond_a: Optional[torch.Tensor]=None):
-        if cond_x is not None or cond_a is not None:
+        if cond_x is not None and cond_a is not None:
             if len(cond_x) == len(cond_a):
                 num_samples = len(cond_x)
             else:
@@ -63,7 +63,6 @@ class MolSPNMargSort(nn.Module):
 
         if cond_x is not None:
             cond_x -= 1
-            # cond_x = cond_x.long()
             mask_x = (cond_x > -1)
             logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1).masked_fill_(mask_x, -torch.inf)
 
@@ -75,7 +74,6 @@ class MolSPNMargSort(nn.Module):
             logs_n = self.logits_n.unsqueeze(0).expand(num_samples, -1)
 
         if cond_a is not None:
-            # cond_a = cond_a.long()
             mask_a = (cond_a > -1)
             mask_a = mask_a[:, self.m].view(-1, self.nd_a)
             cond_a = cond_a[:, self.m].view(-1, self.nd_a)
