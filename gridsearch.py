@@ -6,7 +6,7 @@ import subprocess
 import gridsearch_hyperpars
 
 from rdkit import RDLogger
-from utils.datasets import MOLECULAR_DATASETS, load_dataset
+from utils.datasets import MOLECULAR_DATASETS, BASE_DIR, load_dataset
 from utils.train import train, evaluate, dict2str, flatten_dict, backend_hpars_prefix
 from utils.evaluate import count_parameters
 
@@ -20,11 +20,9 @@ MODELS = {
     **molspn_marg.MODELS
     }
 
-BASE_DIR = '/mnt/data/density_learning/molspn/'
-
-CHECKPOINT_DIR = f'{BASE_DIR}results/gridsearch/model_checkpoint/'
-EVALUATION_DIR = f'{BASE_DIR}results/gridsearch/model_evaluation/'
-OUTPUTLOGS_DIR = f'{BASE_DIR}results/gridsearch/model_outputlogs/'
+CHECKPOINT_DIR = f'{BASE_DIR}gs/ckpt/'
+EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
+OUTPUTLOGS_DIR = f'{BASE_DIR}gs/logs/'
 
 
 def unsupervised(dataset, name, par_buffer):

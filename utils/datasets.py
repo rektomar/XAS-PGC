@@ -16,6 +16,8 @@ from scipy.sparse.csgraph import breadth_first_order, depth_first_order, reverse
 
 from utils.props import calculate_props
 
+BASE_DIR = '/mnt/data/density_learning/molspn/'
+
 MOLECULAR_DATASETS = {
     'qm9': {
         'dataset': 'qm9',
@@ -212,7 +214,7 @@ class DictDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
-def load_dataset(name, batch_size, split, seed=0, dir='data/', order='canonical'):
+def load_dataset(name, batch_size, split, seed=0, dir='/mnt/data/density_learning/molspn/data/', order='canonical'):
     x = DictDataset(torch.load(f'{dir}{name}_{order}.pt', weights_only=True))
 
     torch.manual_seed(seed)

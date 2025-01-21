@@ -3,7 +3,9 @@ import numpy as np
 import pandas as pd
 
 from pylatex import Document, Package, NoEscape
+from utils.datasets import BASE_DIR
 
+EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
 
 BACKEND_NAMES = {
     'btree': 'BT',
@@ -163,7 +165,7 @@ def latexify_table(r_name, w_name, clean_tex=True):
 
 def find_best(evaluation_dir, dataset, model, backends):
     d_frame = pd.DataFrame(0., index=range(len(backends.keys())), columns=COLUMN_NAMES)
-    path = evaluation_dir + f'{dataset}/{model}/'
+    path = evaluation_dir + f'metrics/{dataset}/{model}/'
 
     for i, backend in enumerate(backends.keys()):
         b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
@@ -182,14 +184,12 @@ def find_best(evaluation_dir, dataset, model, backends):
 
 
 if __name__ == "__main__":
-    evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
-
     baselines_qm9 = baseline_models_qm9()
-    ourmodels_qm9 = find_best(evaluation_dir, 'qm9', 'zero_sort', BACKEND_NAMES)
+    ourmodels_qm9 = find_best(EVALUATION_DIR, 'qm9', 'zero_sort', BACKEND_NAMES)
     allmodels_qm9 = pd.concat([baselines_qm9, ourmodels_qm9], ignore_index=True)
 
     baselines_zinc250k = baseline_models_zinc250k()
-    ourmodels_zinc250k = find_best(evaluation_dir, 'zinc250k', 'zero_sort', BACKEND_NAMES)
+    ourmodels_zinc250k = find_best(EVALUATION_DIR, 'zinc250k', 'zero_sort', BACKEND_NAMES)
     allmodels_zinc250k = pd.concat([baselines_zinc250k, ourmodels_zinc250k], ignore_index=True)
 
     allmodels = allmodels_qm9.merge(allmodels_zinc250k, how='left', on='Model', suffixes=('-x', '-y'))

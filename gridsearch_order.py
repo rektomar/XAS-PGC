@@ -3,6 +3,9 @@ import pandas as pd
 
 from pylatex import Document, TikZ, NoEscape
 from gridsearch_evaluate import IGNORE
+from utils.datasets import BASE_DIR
+
+EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
 
 ORDER_NAMES = {
     'bft': 'BFT',
@@ -19,9 +22,8 @@ BACKEND_NAMES = {
     'ctree': 'HCLT'
 }
 
-
 def find_best(evaluation_dir, dataset, model):
-    path = evaluation_dir + f'{dataset}/{model}/'
+    path = evaluation_dir + f'metrics/{dataset}/{model}/'
     b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path)])
     g_frame = b_frame.groupby(['backend', 'order'])
 
@@ -51,8 +53,6 @@ def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
         pic.append(NoEscape(f'\\addplot+[fill=c{i}, draw=none, error bars/.cd, y dir=both, y explicit] coordinates {{' + ' '.join(f'({k}, {v}) +- ({-dev},{dev})' for (k, v), dev in zip(m[1].droplevel(0).to_dict().items(), s[1].droplevel(0).to_list())) + '};'))
 
 if __name__ == "__main__":
-    evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
-
     model = 'zero_sort'
     dataset = 'qm9'
     ylim_nspdk = 0.1
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     doc.packages.append(NoEscape(r'\definecolor{c4}{RGB}{230,171,2}'))
     doc.packages.append(NoEscape(r'\definecolor{c5}{RGB}{166,118,29}'))
 
-    frame_m, frame_s = find_best(evaluation_dir, dataset, model)
+    frame_m, frame_s = find_best(EVALUATION_DIR, dataset, model)
 
     with doc.create(TikZ()) as pic:
         pic.append(NoEscape(r'\pgfplotsset{every tick label/.append style={font=\footnotesize}}'))

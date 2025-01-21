@@ -2,7 +2,7 @@ import json
 import torch
 
 from rdkit import RDLogger
-from utils.datasets import MOLECULAR_DATASETS, load_dataset
+from utils.datasets import MOLECULAR_DATASETS, BASE_DIR, load_dataset
 from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
@@ -15,8 +15,8 @@ MODELS = {
 }
 
 
-CHECKPOINT_DIR = 'results/training/model_checkpoint/'
-EVALUATION_DIR = 'results/training/model_evaluation/'
+CHECKPOINT_DIR = f'{BASE_DIR}train/ckpt/'
+EVALUATION_DIR = f'{BASE_DIR}train/eval/'
 
 
 if __name__ == '__main__':

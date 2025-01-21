@@ -2,6 +2,9 @@ import os
 import pandas as pd
 
 from pylatex import Document, TikZ, NoEscape
+from utils.datasets import BASE_DIR
+
+EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
 
 BACKEND_NAMES = {
     'btree': 'BT',
@@ -28,7 +31,7 @@ def nextgrouplot(pic, evaluation_dir, dataset, model, backends, ydata, ylabel, a
         ngp += r']'
 
     pic.append(NoEscape(ngp))
-    path = evaluation_dir + f'{dataset}/{model}/'
+    path = evaluation_dir + f'metrics/{dataset}/{model}/'
     for i, backend in enumerate(backends):
         b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
         coordinates = list(b_frame[['num_params', ydata]].itertuples(index=False, name=None))
@@ -36,8 +39,6 @@ def nextgrouplot(pic, evaluation_dir, dataset, model, backends, ydata, ylabel, a
 
 
 if __name__ == "__main__":
-    evaluation_dir = 'results/gridsearch/model_evaluation/metrics/'
-
     model = 'zero_sort'
     dataset = 'qm9'
     ylim_nspdk = 0.1
@@ -74,25 +75,25 @@ if __name__ == "__main__":
             r']'
         ))
 
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_valid',     'Valid')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_valid',     'Valid')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_valid',     'Valid')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'sam_valid',     'Valid')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'res_valid',     'Valid')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'cor_valid',     'Valid')
 
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_unique',    'Unique')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_unique',    'Unique')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_unique',    'Unique')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'sam_unique',    'Unique')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'res_unique',    'Unique')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'cor_unique',    'Unique')
 
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_novel',     'Novel')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_novel',     'Novel')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_novel',     'Novel')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'sam_novel',     'Novel')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'res_novel',     'Novel')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'cor_novel',     'Novel')
 
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'sam_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'res_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'cor_fcd_tst',   'FCD',   f'ymax={ylim_fcd}')
 
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'sam_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'res_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
-        nextgrouplot(pic, evaluation_dir, dataset, model, BACKEND_NAMES.keys(), 'cor_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'sam_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'res_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, EVALUATION_DIR, dataset, model, BACKEND_NAMES.keys(), 'cor_nspdk_tst', 'NSPDK', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
 
         pic.append(NoEscape(r'\end{groupplot}'))
 
