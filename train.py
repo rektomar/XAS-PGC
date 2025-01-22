@@ -15,8 +15,8 @@ MODELS = {
 }
 
 
-CHECKPOINT_DIR = f'{BASE_DIR}train/ckpt/'
-EVALUATION_DIR = f'{BASE_DIR}train/eval/'
+CHECKPOINT_DIR = f'{BASE_DIR}trn/ckpt/'
+EVALUATION_DIR = f'{BASE_DIR}trn/eval/'
 
 
 if __name__ == '__main__':
@@ -48,8 +48,7 @@ if __name__ == '__main__':
         print(f'The number of parameters is {count_parameters(model)}.')
         print(hyperpars['order'])
 
-        model_path = train(model, loaders, hyperpars, CHECKPOINT_DIR)
-        model = torch.load(model_path, weights_only=False)
-        metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, model_path, compute_nll=True)
+        train(model, loaders, hyperpars, CHECKPOINT_DIR)
+        metrics = evaluate(loaders, hyperpars, EVALUATION_DIR, CHECKPOINT_DIR, compute_nll=True)
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))

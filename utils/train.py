@@ -56,21 +56,6 @@ def run_epoch(model, loader, optimizer=[], verbose=False):
 
     return nll_sum.item() / len(loader)
 
-# def run_epoch(model, loader, optimizer=[], verbose=False):
-#     nll_sum = 0.
-#     for b in tqdm(loader, leave=False, disable=verbose):
-#         x = b['x'].to(model.device)
-#         a = b['a'].to(model.device)
-#         def closure():
-#             optimizer.zero_grad()
-#             nll = -model.logpdf(x, a)
-#             nll.backward()
-#             return nll
-#         optimizer.step(closure)
-#         nll_sum += closure()
-
-#     return nll_sum.item() / len(loader)
-
 METRIC_TYPES = ['valid', 'unique', 'novel', 'score']
 
 def train(
@@ -143,15 +128,17 @@ def train(
     return best_model_path
 
 def evaluate(
-        model,
         loaders,
         hyperpars,
         evaluation_dir,
-        model_path,
+        checkpoint_dir,
         num_samples=10000,
         compute_nll=True,
         verbose=False,
     ):
+    dir = checkpoint_dir + f'{hyperpars["dataset"]}/{hyperpars["model"]}/'
+    path_model = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
+    model = torch.load(path_model, weights_only=False)
     model.eval()
 
     canonical = (hyperpars['order']=='canonical')
@@ -198,22 +185,22 @@ def evaluate(
     dir = evaluation_dir + f'metrics/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
-    path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
+    path_metrics = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
     df = pd.DataFrame.from_dict({**flatten_dict(backend_hpars_prefix(hyperpars)), **metrics}, 'index').transpose()
-    df['model_path'] = model_path
-    df.to_csv(path + '.csv', index=False)
+    df['model_path'] = path_model
+    df.to_csv(path_metrics + '.csv', index=False)
 
     dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
-    path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
+    path_images = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
 
     img_sam = MolsToGridImage(mols=mols_sam[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
     img_res = MolsToGridImage(mols=mols_res[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
     img_cor = MolsToGridImage(mols=mols_cor[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
 
-    img_sam.save(path + f'_san.png')
-    img_res.save(path + f'_res.png')
-    img_cor.save(path + f'_cor.png')
+    img_sam.save(path_images + f'_san.png')
+    img_res.save(path_images + f'_res.png')
+    img_cor.save(path_images + f'_cor.png')
 
     return metrics

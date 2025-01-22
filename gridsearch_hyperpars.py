@@ -39,7 +39,7 @@ def grid_ctree(
     return [template_ctree(p) for p in nh]
 
 
-def grid_zero_sort(dataset):
+def grid_sort(dataset):
     order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
     nc = [1, 8, 16]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
@@ -78,11 +78,12 @@ def grid_zero_sort(dataset):
 
 
 GRIDS = {
-    'zero_sort': grid_zero_sort,
+    'zero_sort': grid_sort,
+    'marg_sort': grid_sort,
 }
 
 
 if __name__ == "__main__":
-    print(len(grid_zero_sort('qm9')))
+    print(len(grid_sort('qm9')))
     # for p in grid_zero_sort('qm9')[-9:]:
     #     print(json.dumps(p, indent=4))

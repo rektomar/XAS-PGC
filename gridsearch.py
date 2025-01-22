@@ -41,9 +41,8 @@ def unsupervised(dataset, name, par_buffer):
     print(f'The number of parameters is {count_parameters(model)}.')
     print(hyperpars['order'])
 
-    path = train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
-    model = torch.load(path, weights_only=False)
-    metrics = evaluate(model, loaders, hyperpars, EVALUATION_DIR, compute_nll=False, verbose=True)
+    train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
+    metrics = evaluate(loaders, hyperpars, EVALUATION_DIR, CHECKPOINT_DIR, compute_nll=True, verbose=True)
 
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))
 
@@ -92,6 +91,7 @@ def submit_job(dataset, model, par_buffer, device, max_sub):
 if __name__ == "__main__":
     par_buffer = []
     all_models = [
+        'marg_sort',
         'zero_sort',
     ]
     gpu_models = MODELS.keys()
