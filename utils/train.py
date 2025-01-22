@@ -137,6 +137,9 @@ def evaluate(
         verbose=False,
     ):
     dir = checkpoint_dir + f'{hyperpars["dataset"]}/{hyperpars["model"]}/'
+    if os.path.isdir(dir) != True:
+        os.makedirs(dir)
+        os.system('chmod -R 775 ' + dir)
     path_model = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
     model = torch.load(path_model, weights_only=False)
     model.eval()
@@ -185,6 +188,7 @@ def evaluate(
     dir = evaluation_dir + f'metrics/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
+        os.system('chmod -R 775 ' + dir)
     path_metrics = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
     df = pd.DataFrame.from_dict({**flatten_dict(backend_hpars_prefix(hyperpars)), **metrics}, 'index').transpose()
     df['model_path'] = path_model
@@ -193,6 +197,7 @@ def evaluate(
     dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
     if os.path.isdir(dir) != True:
         os.makedirs(dir)
+        os.system('chmod -R 775 ' + dir)
     path_images = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
 
     img_sam = MolsToGridImage(mols=mols_sam[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
