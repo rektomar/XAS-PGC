@@ -44,6 +44,8 @@ def unsupervised(dataset, name, par_buffer):
     train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
     metrics = evaluate(loaders, hyperpars, EVALUATION_DIR, CHECKPOINT_DIR, compute_nll=True, verbose=True)
 
+    os.system(f'chmod -R 774 {BASE_DIR}gs')
+
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))
 
 
