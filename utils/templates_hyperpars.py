@@ -13,8 +13,9 @@ def template_ptree(nl: int=4,            ns: int=40, ni: int=40): return {"nl": 
 def template_ctree(nh: int=64): return {"nh": nh}
 
 
-def template_zero_sort(
+def template_sort(
     dataset: str,
+    model: str,
     order: str = "canonical",
     nc: int = 100,
     nr: int = None,
@@ -28,7 +29,7 @@ def template_zero_sort(
     hpars = {
         "dataset": dataset,
         "order": order,
-        "model": "zero_sort",
+        "model": model,
         "model_hpars": {
             "nc": nc,
             "backend": backend,
@@ -56,7 +57,7 @@ def template_zero_sort(
 
 
 HYPERPARS_TEMPLATES = [
-    template_zero_sort,
+    template_sort,
 ]
 
 

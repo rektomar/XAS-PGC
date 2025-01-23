@@ -62,7 +62,7 @@ def train(
         model,
         loaders,
         hyperpars,
-        checkpoint_dir,
+        base_dir,
         num_nonimproving_epochs=2000,
         verbose=False,
         metric_type='score'
@@ -114,35 +114,27 @@ def train(
             break
 
         if save_model == True:
-            dir = checkpoint_dir + f'{hyperpars["dataset"]}/{hyperpars["model"]}/'
-
-            if os.path.isdir(dir) != True:
-                os.makedirs(dir)
-                os.system(f'chmod -R 774 {checkpoint_dir}')
+            dir = base_dir + f'ckpt/{hyperpars["dataset"]}/{hyperpars["model"]}/'
+            os.makedirs(dir, exist_ok=True)
             if best_model_path != None:
                 os.remove(best_model_path)
             path = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
             torch.save(model, path)
             best_model_path = path
             save_model = False
-            os.system(f'chmod 664 "{best_model_path}"')
+            os.system(f'chmod -R 774 {base_dir}')
 
     return best_model_path
 
 def evaluate(
         loaders,
         hyperpars,
-        evaluation_dir,
-        checkpoint_dir,
+        base_dir,
         num_samples=10000,
         compute_nll=True,
         verbose=False,
     ):
-    dir = checkpoint_dir + f'{hyperpars["dataset"]}/{hyperpars["model"]}/'
-    if os.path.isdir(dir) != True:
-        os.makedirs(dir)
-        os.system(f'chmod -R 774 {checkpoint_dir}')
-    path_model = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
+    path_model = base_dir + f'ckpt/{hyperpars["dataset"]}/{hyperpars["model"]}/' + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.pt'
     model = torch.load(path_model, weights_only=False)
     model.eval()
 
@@ -187,20 +179,15 @@ def evaluate(
                "time_cor": time_cor + time_sam,
                "num_params": count_parameters(model)}
 
-    dir = evaluation_dir + f'metrics/{hyperpars["dataset"]}/{hyperpars["model"]}/'
-    if os.path.isdir(dir) != True:
-        os.makedirs(dir)
-        os.system(f'chmod -R 774 {evaluation_dir}')
+    dir = base_dir + f'eval/metrics/{hyperpars["dataset"]}/{hyperpars["model"]}/'
+    os.makedirs(dir, exist_ok=True)
     path_metrics = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
     df = pd.DataFrame.from_dict({**flatten_dict(backend_hpars_prefix(hyperpars)), **metrics}, 'index').transpose()
     df['model_path'] = path_model
     df.to_csv(path_metrics + '.csv', index=False)
-    os.system(f'chmod -R 664 "{path_metric}.csv"')
 
-    dir = evaluation_dir + f'images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
-    if os.path.isdir(dir) != True:
-        os.makedirs(dir)
-        os.system(f'chmod -R 774 {evaluation_dir}')
+    dir = base_dir + f'eval/images/{hyperpars["dataset"]}/{hyperpars["model"]}/'
+    os.makedirs(dir, exist_ok=True)
     path_images = dir + dict2str(flatten_dict(backend_hpars_prefix(hyperpars)))
 
     img_sam = MolsToGridImage(mols=mols_sam[0:64], molsPerRow=8, subImgSize=(200, 200), useSVG=False)
@@ -210,5 +197,7 @@ def evaluate(
     img_sam.save(path_images + f'_san.png')
     img_res.save(path_images + f'_res.png')
     img_cor.save(path_images + f'_cor.png')
+
+    os.system(f'chmod -R 774 {base_dir}')
 
     return metrics

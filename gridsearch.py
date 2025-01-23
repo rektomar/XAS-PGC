@@ -20,9 +20,7 @@ MODELS = {
     **molspn_marg.MODELS
     }
 
-CHECKPOINT_DIR = f'{BASE_DIR}gs/ckpt/'
-EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
-OUTPUTLOGS_DIR = f'{BASE_DIR}gs/logs/'
+BASE_DIR_GS = f'{BASE_DIR}gs0/'
 
 
 def unsupervised(dataset, name, par_buffer):
@@ -41,16 +39,14 @@ def unsupervised(dataset, name, par_buffer):
     print(f'The number of parameters is {count_parameters(model)}.')
     print(hyperpars['order'])
 
-    train(model, loaders, hyperpars, CHECKPOINT_DIR, verbose=True)
-    metrics = evaluate(loaders, hyperpars, EVALUATION_DIR, CHECKPOINT_DIR, compute_nll=True, verbose=True)
-
-    os.system(f'chmod -R 774 {BASE_DIR}gs')
+    train(model, loaders, hyperpars, BASE_DIR_GS, verbose=True)
+    metrics = evaluate(loaders, hyperpars, BASE_DIR_GS, compute_nll=True, verbose=True)
 
     print("\n".join(f'{key:<20}{value:>10.4f}' for key, value in metrics.items()))
 
 
 def submit_job(dataset, model, par_buffer, device, max_sub):
-    outputlogs_dir = OUTPUTLOGS_DIR + f'{dataset}/'
+    outputlogs_dir = BASE_DIR_GS + f'logs/{dataset}/'
     par_buffer_str = str(par_buffer).replace("'", '"')
     cmd_python = "from gridsearch import unsupervised\n" + f'unsupervised("{dataset}", "{model}", {par_buffer_str})'
     cmd_sbatch = "conda activate molspn\n" + f"python -c '{cmd_python}'"
@@ -112,11 +108,11 @@ if __name__ == "__main__":
                 max_sub = 500
                 max_jobs_to_submit = 25
 
-            for hyperpars in gridsearch_hyperpars.GRIDS[model](dataset):
+            for hyperpars in gridsearch_hyperpars.GRIDS[model](dataset, model):
                 hyperpars['model_hpars']['device'] = device
                 backend_hpars_prefix(hyperpars)
 
-                path = EVALUATION_DIR + f'metrics/{dataset}/{model}/' + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.csv'
+                path = BASE_DIR_GS + f'eval/metrics/{dataset}/{model}/' + dict2str(flatten_dict(backend_hpars_prefix(hyperpars))) + '.csv'
                 if not os.path.isfile(path):
                     par_buffer.append(hyperpars)
 

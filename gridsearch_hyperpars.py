@@ -39,7 +39,7 @@ def grid_ctree(
     return [template_ctree(p) for p in nh]
 
 
-def grid_sort(dataset):
+def grid_sort(dataset, model):
     order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
     nc = [1, 8, 16]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
@@ -72,7 +72,7 @@ def grid_sort(dataset):
     hyperpars = []
     for b_name, b_grid, b_xpar, b_apar, b_nr in zip(backend_name, backend_grid, backend_xpar, backend_apar, backend_nr):
         grid = itertools.product(order, nc, b_nr, [b_name], b_grid(**b_xpar), b_grid(**b_apar), batch_size, lr, seed)
-        hyperpars.extend([template_zero_sort(dataset, *p) for p in list(grid)])
+        hyperpars.extend([template_sort(dataset, model, *p) for p in list(grid)])
 
     return hyperpars
 

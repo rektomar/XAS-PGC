@@ -14,10 +14,7 @@ MODELS = {
     **molspn_marg.MODELS
 }
 
-
-CHECKPOINT_DIR = f'{BASE_DIR}trn/ckpt/'
-EVALUATION_DIR = f'{BASE_DIR}trn/eval/'
-
+BASE_DIR_TRN = f'{BASE_DIR}trn/'
 
 if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
@@ -48,7 +45,7 @@ if __name__ == '__main__':
         print(f'The number of parameters is {count_parameters(model)}.')
         print(hyperpars['order'])
 
-        train(model, loaders, hyperpars, CHECKPOINT_DIR)
-        metrics = evaluate(loaders, hyperpars, EVALUATION_DIR, CHECKPOINT_DIR, compute_nll=True)
+        train(model, loaders, hyperpars, BASE_DIR_TRN)
+        metrics = evaluate(loaders, hyperpars, BASE_DIR_TRN, compute_nll=True)
 
         print("\n".join(f'{key:<16}{value:>10.4f}' for key, value in metrics.items()))
