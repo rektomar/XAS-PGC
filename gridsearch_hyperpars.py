@@ -41,33 +41,52 @@ def grid_ctree(
 
 def grid_sort(dataset, model):
     order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
-    nc = [1, 8, 16]
+    nc = [1, 4, 16]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
     backend_grid = [grid_btree, grid_vtree, grid_rtree, grid_ptree, grid_ctree]
-    backend_xpar = [
-        {"nl":[3],           "ns":[40], "ni":[40]},
-        {"nl":[3],           "ns":[40], "ni":[40]},
-        {"nl":[3], "nr":[1], "ns":[40], "ni":[40]},
-        {"nl":[3],           "ns":[40], "ni":[40]},
-        {"nh":[64]}
-    ]
-    backend_apar = [
-        {"nl":[5],           "ns":[40], "ni":[40]},
-        {"nl":[5],           "ns":[40], "ni":[40]},
-        {"nl":[5], "nr":[1], "ns":[40], "ni":[40]},
-        {"nl":[5],           "ns":[40], "ni":[40]},
-        {"nh":[64]}
-    ]
+    match dataset:
+        case 'qm9':
+            backend_xpar = [
+                {"nl":[3],                   "ns":[16], "ni":[16]},
+                {"nl":[3],                   "ns":[16], "ni":[16]},
+                {"nl":[3], "nr":[16, 32, 6], "ns":[16], "ni":[16]},
+                {"nl":[3],                   "ns":[16], "ni":[16]},
+                {"nh":[64, 128]}
+            ]
+            backend_apar = [
+                {"nl":[5],                   "ns":[16], "ni":[16]},
+                {"nl":[5],                   "ns":[16], "ni":[16]},
+                {"nl":[5], "nr":[16, 32, 6], "ns":[16], "ni":[16]},
+                {"nl":[5],                   "ns":[16], "ni":[16]},
+                {"nh":[64, 128]}
+            ]
+        case 'zinc250k':
+            backend_xpar = [
+                {"nl":[4],                   "ns":[16], "ni":[16]},
+                {"nl":[4],                   "ns":[16], "ni":[16]},
+                {"nl":[4], "nr":[16, 32, 6], "ns":[16], "ni":[16]},
+                {"nl":[4],                   "ns":[16], "ni":[16]},
+                {"nh":[128, 256]}
+            ]
+            backend_apar = [
+                {"nl":[6],                   "ns":[16], "ni":[16]},
+                {"nl":[6],                   "ns":[16], "ni":[16]},
+                {"nl":[6], "nr":[16, 32, 6], "ns":[16], "ni":[16]},
+                {"nl":[6],                   "ns":[16], "ni":[16]},
+                {"nh":[128, 256]}
+            ]
+        case _:
+            raise 'Unknown dataset'
     backend_nr = [
         [None],
         [None],
         [None],
-        [1, 10],
+        [16, 32, 64],
         [None]
     ]
     batch_size = [256]
     lr = [0.05]
-    seed = [0, 1, 2, 3, 4]
+    seed = [0, 1]
 
     hyperpars = []
     for b_name, b_grid, b_xpar, b_apar, b_nr in zip(backend_name, backend_grid, backend_xpar, backend_apar, backend_nr):
@@ -84,6 +103,6 @@ GRIDS = {
 
 
 if __name__ == "__main__":
-    print(len(grid_sort('qm9')))
-    # for p in grid_zero_sort('qm9')[-9:]:
+    print(len(grid_sort('qm9', 'marg_sort')))
+    # for p in grid_sort('qm9', 'marg_sort')[-9:]:
     #     print(json.dumps(p, indent=4))
