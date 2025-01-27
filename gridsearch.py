@@ -90,7 +90,7 @@ if __name__ == "__main__":
     par_buffer = []
     all_models = [
         'marg_sort',
-        'zero_sort',
+        # 'zero_sort',
     ]
     gpu_models = MODELS.keys()
 
