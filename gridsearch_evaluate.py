@@ -5,7 +5,7 @@ import pandas as pd
 from pylatex import Document, Package, NoEscape
 from utils.datasets import BASE_DIR
 
-EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
+EVALUATION_DIR = f'{BASE_DIR}gs0/eval/'
 
 BACKEND_NAMES = {
     'btree': 'BT',
@@ -26,6 +26,9 @@ IGNORE = [
     'sam_score',
     'sam_m_stab',
     'sam_a_stab',
+    'sam_fcd_trn',
+    'sam_kldiv_trn',
+    'sam_nspdk_trn',
     'sam_fcd_val',
     'sam_kldiv_val',
     'sam_nspdk_val',
@@ -40,6 +43,9 @@ IGNORE = [
     'res_score',
     'res_m_stab',
     'res_a_stab',
+    'res_fcd_trn',
+    'res_kldiv_trn',
+    'res_nspdk_trn',
     'res_fcd_val',
     'res_kldiv_val',
     'res_nspdk_val',
@@ -54,12 +60,18 @@ IGNORE = [
     'cor_score',
     'cor_m_stab',
     'cor_a_stab',
+    'cor_fcd_trn',
+    'cor_kldiv_trn',
+    'cor_nspdk_trn',
     'cor_fcd_val',
     'cor_kldiv_val',
     'cor_nspdk_val',
     'cor_fcd_tst',
     'cor_kldiv_tst',
     'cor_nspdk_tst',
+    'nll_trn_approx',
+    'nll_val_approx',
+    'nll_tst_approx',
     'time_sam',
     'time_res',
     'time_cor',
@@ -179,17 +191,18 @@ def find_best(evaluation_dir, dataset, model, backends):
                               f_frame['sam_fcd_tst'].mean(),
                           100*f_frame['sam_unique'].mean(),
                           100*f_frame['sam_novel'].mean()]
+        # print(len(f_frame['sam_valid']))
 
     return d_frame
 
 
 if __name__ == "__main__":
     baselines_qm9 = baseline_models_qm9()
-    ourmodels_qm9 = find_best(EVALUATION_DIR, 'qm9', 'zero_sort', BACKEND_NAMES)
+    ourmodels_qm9 = find_best(EVALUATION_DIR, 'qm9', 'marg_sort', BACKEND_NAMES)
     allmodels_qm9 = pd.concat([baselines_qm9, ourmodels_qm9], ignore_index=True)
 
     baselines_zinc250k = baseline_models_zinc250k()
-    ourmodels_zinc250k = find_best(EVALUATION_DIR, 'zinc250k', 'zero_sort', BACKEND_NAMES)
+    ourmodels_zinc250k = find_best(EVALUATION_DIR, 'zinc250k', 'marg_sort', BACKEND_NAMES)
     allmodels_zinc250k = pd.concat([baselines_zinc250k, ourmodels_zinc250k], ignore_index=True)
 
     allmodels = allmodels_qm9.merge(allmodels_zinc250k, how='left', on='Model', suffixes=('-x', '-y'))
