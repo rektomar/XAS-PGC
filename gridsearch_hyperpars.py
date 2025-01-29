@@ -41,7 +41,7 @@ def grid_ctree(
 
 def grid_sort(dataset, model):
     order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
-    nc = [128]
+    nc = [64]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
     backend_grid = [grid_btree, grid_vtree, grid_rtree, grid_ptree, grid_ctree]
     match dataset:
