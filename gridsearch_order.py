@@ -5,7 +5,7 @@ from pylatex import Document, TikZ, NoEscape
 from gridsearch_evaluate import IGNORE
 from utils.datasets import BASE_DIR
 
-EVALUATION_DIR = f'{BASE_DIR}gs/eval/'
+EVALUATION_DIR = f'{BASE_DIR}gs0/eval/'
 
 ORDER_NAMES = {
     'bft': 'BFT',
@@ -53,7 +53,7 @@ def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
         pic.append(NoEscape(f'\\addplot+[fill=c{i}, draw=none, error bars/.cd, y dir=both, y explicit] coordinates {{' + ' '.join(f'({k}, {v}) +- ({-dev},{dev})' for (k, v), dev in zip(m[1].droplevel(0).to_dict().items(), s[1].droplevel(0).to_list())) + '};'))
 
 if __name__ == "__main__":
-    model = 'zero_sort'
+    model = 'marg_sort'
     dataset = 'qm9'
     ylim_nspdk = 0.1
     ylim_fcd = 11.0
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                 r'legend to name=named,' +
                 r'legend style={fill=none,draw=none,column sep=3pt},' +
                 r'label style={font=\footnotesize},' +
-                r'xticklabels={BFT, Morgan, DFT, RCM, Unordered},' +
+                r'xticklabels={BFT, MCA, DFT, RCM, Unordered},' +
             r']'
         ))
 
