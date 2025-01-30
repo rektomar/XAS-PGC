@@ -41,7 +41,7 @@ def grid_ctree(
 
 def grid_sort(dataset, model):
     order = ['canonical', 'bft', 'dft', 'rcm', 'unordered']
-    nc = [64]
+    nc = [32]
     backend_name = ['btree', 'vtree', 'rtree', 'ptree', 'ctree']
     backend_grid = [grid_btree, grid_vtree, grid_rtree, grid_ptree, grid_ctree]
     match dataset:
@@ -86,7 +86,7 @@ def grid_sort(dataset, model):
     ]
     batch_size = [256]
     lr = [0.05]
-    seed = [0]
+    seed = [4]
 
     hyperpars = []
     for b_name, b_grid, b_xpar, b_apar, b_nr in zip(backend_name, backend_grid, backend_xpar, backend_apar, backend_nr):
