@@ -2,7 +2,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem.Draw import MolsToGridImage, rdMolDraw2D
 from utils.evaluate import resample_invalid_mols
-from utils.molecular import correct_mols
+from utils.molecular import correct_mols, gs2mols, isvalid
 
 
 def get_hit(mol, patt):
@@ -61,16 +61,17 @@ def plot_grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=Fa
     else:    
         img.save(f'plots/{fname}.png')
 
-def plot_grid_unconditional(model, nrows, ncols, max_atoms, atom_list, fname="unco_mols", useSVG=False):
-    x, a = resample_invalid_mols(model, 2*nrows*ncols, atom_list, max_atoms)
-    vmols = correct_mols(x, a, atom_list)
-    img = MolsToGridImage(vmols[:nrows*ncols], molsPerRow=ncols, subImgSize=(400, 400), useSVG=useSVG)
+def plot_grid_unconditional(model, nrows, ncols, max_atoms, atom_list, sub_img_size=(200, 100), dname='plots/', fname="unco_mols", useSVG=False):
+    x, a = resample_invalid_mols(model, 5*nrows*ncols, atom_list, max_atoms, max_attempts=10)
+    mols = gs2mols(x, a, atom_list)  
+    vmols = list(filter(isvalid, mols))
+    img = MolsToGridImage(vmols[:nrows*ncols], molsPerRow=ncols, subImgSize=sub_img_size, useSVG=useSVG, padding=0)
     if useSVG:
-         with open(f'plots/{fname}.svg', 'w') as f:
+         with open(f'{dname}{fname}.svg', 'w') as f:
             img = img.replace("<rect style='opacity:1.0", "<rect style='opacity: 0")  # for transparent background
             f.write(img)
     else:
-        img.save(f'plots/{fname}.png')
+        img.save(f'{dname}{fname}.png')
 
 if __name__ == "__main__":
     # slist = ['CC1=CC2=C(C=C1)C(=CN2CCN1CCOCC1)C(=O)C1=CC=CC2=C1C=CC=C2',
