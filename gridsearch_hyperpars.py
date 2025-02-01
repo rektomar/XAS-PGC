@@ -86,7 +86,7 @@ def grid_sort(dataset, model):
     ]
     batch_size = [256]
     lr = [0.05]
-    seed = [0]
+    seed = [1]
 
     hyperpars = []
     for b_name, b_grid, b_xpar, b_apar, b_nr in zip(backend_name, backend_grid, backend_xpar, backend_apar, backend_nr):

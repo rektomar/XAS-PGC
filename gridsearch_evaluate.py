@@ -208,7 +208,7 @@ if __name__ == "__main__":
     allmodels = allmodels_qm9.merge(allmodels_zinc250k, how='left', on='Model', suffixes=('-x', '-y'))
     allmodels.columns = COLUMN_NAMES + COLUMN_NAMES[1:]
 
-    columns = [('','Models')] + [('QM9', name) for name in COLUMN_NAMES[1:]] + [('Zinc250k', name) for name in COLUMN_NAMES[1:]]
+    columns = [('','Model')] + [('QM9', name) for name in COLUMN_NAMES[1:]] + [('Zinc250k', name) for name in COLUMN_NAMES[1:]]
     allmodels.columns = pd.MultiIndex.from_tuples(columns)
     allmodels.head()
 
