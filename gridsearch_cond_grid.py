@@ -15,7 +15,7 @@ rdBase.DisableLog("rdApp.error")
 
 PATT_CONFIG = {
     'qm9': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC'],
-    'zinc250k': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC']
+    'zinc250k': ['CC(=O)c1ccccc1O', 'CNC(C)=O', 'Fc1ccc(Cn2ccccc2=O)cc1', 'COc1ccc(F)c2nc(N)ccc12']#, 'FC(F)(F)CN(CC1CC1)C(=O)c1cc[nH]c1']
 }
 
 def find_best(evaluation_dir, dataset, model):
@@ -25,11 +25,12 @@ def find_best(evaluation_dir, dataset, model):
     f_frame = b_frame.loc[b_frame['sam_valid'].idxmax()]
     return f_frame['model_path']
 
-def create_grid(path_model, dataset, num_to_show=8, num_to_sample=200, seed=0):
+def create_grid(path_model, dataset, num_to_show=8, num_to_sample=200, seed=1):
     atom_list = MOLECULAR_DATASETS[dataset]['atom_list']
     max_atoms = MOLECULAR_DATASETS[dataset]['max_atoms']
     model = torch.load(path_model, weights_only=False)
 
+    torch.manual_seed(seed)
     patt_smls = PATT_CONFIG[dataset]
     cond_smls = create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_atoms, atom_list)
 
