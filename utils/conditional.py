@@ -7,6 +7,8 @@ from utils.molecular import mol2g, gs2mols, isvalid
 from utils.evaluate import evaluate_molecules, print_metrics
 from utils.datasets import load_dataset
 
+import numpy as np
+
 
 def create_mask(batch_size, max_mol_size, submol_size, device='cuda'):
     """Create marginalization masks 'mx' and 'ma' for a single molecule.
@@ -82,6 +84,7 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
     xx, aa, submol_size = create_observed_mol(patt_sml, max_atoms, atom_list)
     xx = xx.expand(num_samples, -1).clone()
     aa = aa.expand(num_samples, -1, -1).clone()
+    torch.manual_seed(seed)
     xc, ac, _, _ = sample_conditional(model, xx, aa, submol_size, num_samples, max_atoms, atom_list)
 
     fsmls_trn = filter_molecules(loaders['smiles_trn'], patt_sml)
@@ -97,11 +100,23 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
     loaders['smiles_val'] = fsmls_val
     loaders['smiles_tst'] = fsmls_tst
 
+    # avg size increase (atoms, edges)
+
+    mols_sampled = gs2mols(xc, ac, atom_list)
+
+    patt_natoms = Chem.MolFromSmiles(patt_sml).GetNumAtoms()
+    patt_nbonds = Chem.MolFromSmiles(patt_sml).GetNumBonds()
+
+    natoms_inc = [m.GetNumAtoms()-patt_natoms for m in mols_sampled]
+    nbonds_inc = [m.GetNumBonds()-patt_nbonds for m in mols_sampled]
+
+    stats = {'nat_inc': np.mean(natoms_inc), 'nbo_inc': np.mean(nbonds_inc)}
+
     metrics = evaluate_molecules(xc, ac, loaders, atom_list, evaluate_trn=False,
-                                                             evaluate_val=False,
-                                                             evaluate_tst=False,
+                                                             evaluate_val=True,
+                                                             evaluate_tst=True,
                                                              metrics_only=True)
-    metrics = metrics | occs
+    metrics = metrics | occs | stats
 
     return metrics
 
