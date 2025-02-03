@@ -50,6 +50,8 @@ def nspdk_stats(graph_ref_list, graph_pred_list):
     return mmd_dist
 
 def metric_nspdk(smls_gen, smls_ref):
+    if len(smls_gen) < 2 or len(smls_ref) < 2:
+        return np.nan
     mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
     mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
 

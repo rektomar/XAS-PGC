@@ -53,6 +53,8 @@ def prop_kldiv(props_gen: pd.DataFrame, props_ref: pd.DataFrame):
     return score
 
 def metric_k(smls_gen, smls_ref):
+    if len(smls_gen) < 2 or len(smls_ref) < 2:
+        return np.nan
     mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
     mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
 

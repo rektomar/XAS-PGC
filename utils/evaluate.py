@@ -1,10 +1,10 @@
 import torch
-
 from rdkit import Chem
-from fcd_torch import FCD
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
+
 from utils.metrics.nspdk import metric_nspdk
 from utils.metrics.kldiv import metric_k
+from utils.metrics.fcd import metric_f 
 
 
 def metric_v(vmols, num_mols):
@@ -46,10 +46,6 @@ def metric_s(mols, num_mols):
         sum_atoms += num_atoms
 
     return mols_stable / float(num_mols), bond_stable / float(sum_atoms)
-
-def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
-    fcd = FCD(device=device, n_jobs=2, canonize=canonical)
-    return fcd(smls_ref, smls_gen)
 
 def evaluate_molecules(
         x,
