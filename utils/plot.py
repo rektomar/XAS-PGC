@@ -50,8 +50,10 @@ def plot_grid_conditional(smiles_mat, smarts_patts, fname="cond_mols", useSVG=Fa
             hit_bonds.append(hit_bond)
 
     dopts = rdMolDraw2D.MolDrawOptions()
-    dopts.setHighlightColour((.0,.8,.9))
+    # dopts.setHighlightColour((.0,.8,.9))
+    dopts.setHighlightColour((216/255, 179/255, 101/255))
     dopts.highlightBondWidthMultiplier = 15
+    dopts.padding = 0
     img = MolsToGridImage(mols, highlightAtomLists=hit_ats, highlightBondLists=hit_bonds, 
                         molsPerRow=molsPerRow, subImgSize=(400,400), drawOptions=dopts, useSVG=useSVG)
     if useSVG:
