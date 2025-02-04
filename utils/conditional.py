@@ -30,7 +30,7 @@ def create_mask(batch_size, max_mol_size, submol_size, device='cuda'):
     ma[:, :submol_size, :submol_size] = True
     return mx, ma
 
-def sample_conditional(model, x, a, submol_size, num_samples, max_mol_size, atom_list):
+def sample_conditional(model, x, a, submol_size, num_samples, max_mol_size, atom_list, chunk_size=2000):
     """Conditionaly generate a molecule given some other (smaller) molecule.
     Parameters:
         model (torch.nn.Module): torch molecular model
@@ -48,7 +48,7 @@ def sample_conditional(model, x, a, submol_size, num_samples, max_mol_size, atom
     x[~mx] = 0
     a[~ma] = -1
 
-    xc, ac = model.sample(cond_x=x, cond_a=a)
+    xc, ac = model.sample(cond_x=x, cond_a=a, chunk_size=chunk_size)
     mol_sample = gs2mols(xc, ac, atom_list)
     sml_sample = [Chem.MolToSmiles(mol, kekuleSmiles=True) for mol in mol_sample]
 
@@ -120,7 +120,7 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
 
     return metrics
 
-def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_atoms, atom_list):
+def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_atoms, atom_list, seed=0, chunk_size=2000):
     assert num_to_show < num_to_sample
     cond_smls = []
 
@@ -128,7 +128,8 @@ def create_conditional_grid(model, patt_smls, num_to_show, num_to_sample, max_at
         xx, aa, submol_size = create_observed_mol(patt, max_atoms, atom_list)
         xx = xx.expand(num_to_sample, -1).clone()
         aa = aa.expand(num_to_sample, -1, -1).clone()
-        _, _, mols, smls = sample_conditional(model, xx, aa, submol_size, num_to_sample, max_atoms, atom_list)
+        torch.manual_seed(seed)
+        _, _, mols, smls = sample_conditional(model, xx, aa, submol_size, num_to_sample, max_atoms, atom_list, chunk_size=chunk_size)
         filtered = [(mol, sml) for (mol, sml) in zip(mols, smls) if isvalid(mol)]
         valid_mols, valid_smls = zip(*filtered)
         valid_mols, valid_smls = list(valid_mols), list(valid_smls)
