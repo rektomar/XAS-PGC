@@ -144,7 +144,44 @@ def perm_molecule(mol, p, max_atom, atom_list):
     x, a = permute_graph(x, a, p)
     return x, a, g2mol(x, a, atom_list)
 
-# def preprocess(path, smile_col, prop_name, max_atom, atom_list, order='canonical'):
+def reorder_molecule(x, a, mol, order, max_atom, atom_list):
+    n = mol.GetNumAtoms()
+    match order:
+        case 'unordered':
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
+
+        case 'canonical':
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=True)
+            mol = Chem.MolFromSmiles(s)
+            Chem.Kekulize(mol)
+            x, a = mol2g(mol, max_atom, atom_list)
+
+        case 'bft':
+            p = breadth_first_order(csr_matrix((a > 0).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range((x > 0).sum(), max_atom))
+            x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
+
+        case 'dft':
+            p = depth_first_order(csr_matrix((a > 0).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range((x > 0).sum(), max_atom))
+            x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
+
+        case 'rcm':
+            p = reverse_cuthill_mckee(csr_matrix((a > 0).to(torch.int8))).tolist()
+            x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
+
+        case 'rand':
+            rand_perm = torch.randperm(max_atom)
+            p = torch.cat((rand_perm[rand_perm < n], torch.arange(n, max_atom)))
+            x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+            s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
+
+        case _:
+            os.error('Unknown order')
+        
+    return x, a, mol, s
+
 def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
     if smile_col is not None:
         input_df = pandas.read_csv(f'{path}.csv', sep=',', dtype='str')
@@ -153,11 +190,8 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
         input_df = pandas.read_csv(f'{path}.csv', header=None, sep=',', dtype='str')
         smls_list = list(input_df[0])
 
-    #prop_list = list(input_df[prop_name])
-    rand_perm = torch.randperm(max_atom)
     data_list = []
 
-    # for smls, prop in tqdm(zip(smls_list, prop_list)):
     for smls in tqdm(smls_list):
         mol = Chem.MolFromSmiles(smls)
         n = mol.GetNumAtoms()
@@ -165,41 +199,8 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
 
         p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
         x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+        x, a, mol, s = reorder_molecule(x, a, mol, order, max_atom, atom_list)
 
-        match order:
-            case 'unordered':
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
-
-            case 'canonical':
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=True)
-                mol = Chem.MolFromSmiles(s)
-                Chem.Kekulize(mol)
-                x, a = mol2g(mol, max_atom, atom_list)
-
-            case 'bft':
-                p = breadth_first_order(csr_matrix((a > 0).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range((x > 0).sum(), max_atom))
-                x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
-
-            case 'dft':
-                p = depth_first_order(csr_matrix((a > 0).to(torch.int8)), 0, directed=False, return_predecessors=False).tolist() + list(range((x > 0).sum(), max_atom))
-                x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
-
-            case 'rcm':
-                p = reverse_cuthill_mckee(csr_matrix((a > 0).to(torch.int8))).tolist()
-                x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
-
-            case 'rand':
-                p = torch.cat((rand_perm[rand_perm < n], torch.arange(n, max_atom)))
-                x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
-                s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=False)
-
-            case _:
-                os.error('Unknown order')
-
-        # data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, 'y': y})
         data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, **props})
 
     torch.save(data_list, f'{path}_{order}.pt')
@@ -243,8 +244,8 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'polymer'
-    orders = ['canonical', 'bft', 'dft', 'rcm', 'rand', 'unordered']
+    dataset = 'qm9'
+    orders = ['rand', 'unordered']
 
     for order in orders:
         if download:
@@ -262,7 +263,7 @@ if __name__ == '__main__':
                 case _:
                     os.error('Unsupported dataset.')
 
-        loader_trn, loader_val = load_dataset(dataset, 100, split=[0.99, 0.01], order=order)
+        loaders = load_dataset(dataset, 100, split=[0.8, 0.1, 0.1], order=order)
 
         # x = [e['x'] for e in loader_trn.dataset]
         # a = [e['a'] for e in loader_trn.dataset]
