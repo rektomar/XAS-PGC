@@ -81,35 +81,36 @@ IGNORE = [
     ]
 
 COLUMN_NAMES = [
-        'Model',       'Valid', 'NSPDK', 'FCD', 'Unique',   'Novel']
+        'Model',         'Valid',           'NSPDK',           'FCD',             'Unique',          'Novel']
 def baseline_models_qm9():
     rows = [
-        ['GraphAF',      77.43,   0.020,  5.27,    88.64,     86.59],
-        ['GraphDF',      93.88,   0.064, 10.93,    98.58,     98.54],
-        ['MoFlow',       91.36,   0.017,  4.47,    98.65,     94.72],
-        ['EDP-GNN',      47.52,   0.005,  2.68,    99.25,     86.58],
-        ['GraphEBM',      8.22,   0.030,  6.14,    97.90,     97.01],
-        ['SPECTRE',      87.30,   0.163, 47.96,    35.70,     97.28],
-        ['GDSS',         95.72,   0.003,  2.90,    98.46,     86.27],
-        ['DiGress',      99.00,   0.005,  0.36,    96.66,     33.40],
-        ['GRAPHARM',     90.25,   0.002,  1.22,    95.62,     70.39]
+        ['GraphAF',      r'74.43$\pm$2.55', r'0.021$\pm$0.003', r' 5.27$\pm$0.40', r'88.64$\pm$0.00', r'86.59$\pm$1.95'],
+        ['GraphDF',      r'93.88$\pm$4.76', r'0.064$\pm$0.000', r'10.93$\pm$0.04', r'98.58$\pm$0.00', r'98.54$\pm$0.48'],
+        ['MoFlow',       r'91.36$\pm$1.23', r'0.017$\pm$0.003', r' 4.47$\pm$0.60', r'98.65$\pm$0.00', r'94.72$\pm$0.77'],
+        ['EDP-GNN',      r'47.52$\pm$3.60', r'0.005$\pm$0.001', r' 2.68$\pm$0.22', r'99.25$\pm$0.00', r'86.58$\pm$1.85'],
+        ['GraphEBM',     r' 8.22$\pm$2.24', r'0.030$\pm$0.004', r' 6.14$\pm$0.41', r'97.90$\pm$0.00', r'97.01$\pm$0.17'],
+        ['SPECTRE',      r'87.30$\pm$n/a',  r'0.163$\pm$n/a',   r'47.96$\pm$n/a',  r'35.70$\pm$n/a',  r'97.28$\pm$n/a' ],
+        ['GDSS',         r'95.72$\pm$1.94', r'0.003$\pm$0.000', r' 2.90$\pm$0.28', r'98.46$\pm$0.00', r'86.27$\pm$2.29'],
+        ['DiGress',      r'99.00$\pm$0.10', r'0.005$\pm$n/a',   r' 0.36$\pm$n/a',  r'96.20$\pm$n/a',  r'33.40$\pm$n/a' ],
+        ['GRAPHARM',     r'90.25$\pm$n/a',  r'0.002$\pm$n/a',   r' 1.22$\pm$n/a',  r'95.62$\pm$n/a',  r'70.39$\pm$n/a' ]
     ]
     return pd.DataFrame(rows, columns=COLUMN_NAMES)
 def baseline_models_zinc250k():
     rows = [
-        ['GraphAF',      68.47,   0.044, 16.02,    98.64,     100.0],
-        ['GraphDF',      90.61,   0.177, 33.55,    99.63,     100.0],
-        ['MoFlow',       63.11,   0.046, 20.93,    99.99,     100.0],
-        ['EDP-GNN',      82.97,   0.049, 16.74,    99.79,     100.0],
-        ['GraphEBM',      5.29,   0.212, 35.47,    98.79,     100.0],
-        ['SPECTRE',      90.20,   0.109, 18.44,    67.05,     100.0],
-        ['GDSS',         97.01,   0.019, 14.66,    99.64,     100.0],
-        ['DiGress',      91.02,   0.082, 23.06,    81.23,     100.0],
-        ['GRAPHARM',     88.23,   0.055, 16.26,    99.46,     100.0]
+        ['GraphAF',      r'68.47$\pm$0.99', r'0.044$\pm$0.005', r'16.02$\pm$0.48', r'98.64$\pm$0.69', r'100.00$\pm$0.00'],
+        ['GraphDF',      r'90.61$\pm$4.30', r'0.177$\pm$0.001', r'33.55$\pm$0.16', r'99.63$\pm$0.01', r' 99.99$\pm$0.01'],
+        ['MoFlow',       r'63.11$\pm$5.17', r'0.046$\pm$0.002', r'20.93$\pm$0.18', r'99.99$\pm$0.01', r'100.00$\pm$0.00'],
+        ['EDP-GNN',      r'82.97$\pm$2.73', r'0.049$\pm$0.006', r'16.74$\pm$1.30', r'99.79$\pm$0.08', r'100.00$\pm$0.00'],
+        ['GraphEBM',     r' 5.29$\pm$3.83', r'0.212$\pm$0.005', r'35.47$\pm$5.33', r'98.79$\pm$0.15', r'100.00$\pm$0.00'],
+        ['SPECTRE',      r'90.20$\pm$n/a',  r'0.109$\pm$n/a',   r'18.44$\pm$ n/a', r'67.05$\pm$n/a',  r'100.00$\pm$n/a' ],
+        ['GDSS',         r'97.01$\pm$0.77', r'0.019$\pm$0.001', r'14.66$\pm$0.68', r'99.64$\pm$0.13', r'100.00$\pm$0.00'],
+        ['DiGress',      r'91.02$\pm$n/a',  r'0.082$\pm$n/a',   r'23.06$\pm$ n/a', r'81.23$\pm$n/a',  r'100.00$\pm$n/a' ],
+        ['GRAPHARM',     r'88.23$\pm$n/a',  r'0.055$\pm$n/a',   r'16.26$\pm$ n/a', r'99.46$\pm$n/a',  r'100.00$\pm$n/a' ]
     ]
     return pd.DataFrame(rows, columns=COLUMN_NAMES)
 
 def highlight_top3(x, type='max'):
+    x = [float(s.split('$\pm$')[0]) for s in x]
     styles = np.array(len(x)*[None])
     match type:
         case 'min':
@@ -176,7 +177,7 @@ def latexify_table(r_name, w_name, clean_tex=True):
 
 
 def find_best(evaluation_dir, dataset, model, backends):
-    d_frame = pd.DataFrame(0., index=range(len(backends.keys())), columns=COLUMN_NAMES)
+    d_frame = pd.DataFrame('', index=range(len(backends.keys())), columns=COLUMN_NAMES)
     path = evaluation_dir + f'metrics/{dataset}/{model}/'
 
     for i, backend in enumerate(backends.keys()):
@@ -185,13 +186,14 @@ def find_best(evaluation_dir, dataset, model, backends):
         a_frame = g_frame.agg({'sam_valid': 'mean'})
         f_frame = g_frame.get_group(a_frame['sam_valid'].idxmax())
 
-        d_frame.loc[i] = [BACKEND_NAMES[backend],
-                          100*f_frame['sam_valid'].mean(),
-                              f_frame['sam_nspdk_tst'].mean(),
-                              f_frame['sam_fcd_tst'].mean(),
-                          100*f_frame['sam_unique'].mean(),
-                          100*f_frame['sam_novel'].mean()]
-        # print(len(f_frame['sam_valid']))
+        d_frame.loc[i] = [
+            BACKEND_NAMES[backend],
+            f'{ 100*f_frame["sam_valid"].mean():.2f}$\\pm${ 100*f_frame["sam_valid"].std():.2f}',
+            f'{ f_frame["sam_nspdk_tst"].mean():.3f}$\\pm${ f_frame["sam_nspdk_tst"].std():.3f}',
+            f'{   f_frame["sam_fcd_trn"].mean():.2f}$\\pm${   f_frame["sam_fcd_trn"].std():.2f}',
+            f'{100*f_frame["sam_unique"].mean():.2f}$\\pm${100*f_frame["sam_unique"].std():.2f}',
+            f'{100*f_frame["sam_novel" ].mean():.2f}$\\pm${100*f_frame["sam_novel" ].std():.2f}'
+        ]
 
     return d_frame
 
