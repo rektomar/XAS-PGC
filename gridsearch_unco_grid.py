@@ -18,7 +18,7 @@ ORDER_NAMES = {
     'canonical': 'MCA',
     'dft': 'DFT',
     'rcm': 'RCM',
-    'unordered': 'Unordered'
+    'unordered': 'Random'
 }
 BACKEND_NAMES = {
     'btree': 'BT',
