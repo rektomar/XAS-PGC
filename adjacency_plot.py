@@ -94,7 +94,7 @@ if __name__ == "__main__":
             r']'
         ))
 
-        nextgrouplot(pic, a_uno, 'Unordered')
+        nextgrouplot(pic, a_uno, 'Random')
         markzeros(pic, a_uno)
         nextgrouplot(pic, a_bft, 'BFT')
         markzeros(pic, a_bft)
@@ -102,7 +102,7 @@ if __name__ == "__main__":
         markzeros(pic, a_dft)
         nextgrouplot(pic, a_rcm, 'RCM')
         markzeros(pic, a_rcm)
-        nextgrouplot(pic, a_can, 'Morgan', True)
+        nextgrouplot(pic, a_can, 'MCA', True)
         markzeros(pic, a_can)
 
         pic.append(NoEscape(r'\end{groupplot}'))

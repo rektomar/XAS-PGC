@@ -12,7 +12,7 @@ ORDER_NAMES = {
     'canonical': 'MCA',
     'dft': 'DFT',
     'rcm': 'RCM',
-    'unordered': 'Unordered'
+    'unordered': 'Random'
 }
 BACKEND_NAMES = {
     'btree': 'BT',
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                 r'legend to name=named,' +
                 r'legend style={fill=none,draw=none,column sep=3pt},' +
                 r'label style={font=\footnotesize},' +
-                r'xticklabels={BFT, MCA, DFT, RCM, Unordered},' +
+                r'xticklabels={BFT, MCA, DFT, RCM, Random},' +
             r']'
         ))
 
