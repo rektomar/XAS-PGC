@@ -6,6 +6,7 @@ from torch.nn.functional import softplus
 
 # TODO: merge prop models using abstract class
 
+
 class NormalProp(nn.Module):
 
     def __init__(self, nc: int, eps: float=1e-6) -> None:
@@ -30,12 +31,12 @@ class NormalProp(nn.Module):
 
 class GMMProp(nn.Module):
 
-    def __init__(self, nc: int, num_comps: int, eps: float=1e-6) -> None:
+    def __init__(self, nc: int, num_comps: int=2, eps: float=1e-6) -> None:
         super().__init__()
         self.eps = eps
         self.m = nn.Parameter(torch.randn(nc, num_comps))
         self.s = nn.Parameter(torch.randn(nc, num_comps))
-        self.w = nn.Parameter(torch.randn(num_comps))
+        self.w = nn.Parameter(torch.randn(nc, num_comps))
 
     @property
     def distribution(self):
@@ -78,24 +79,41 @@ class BetaProp(nn.Module):
 
 class PropNetwork(nn.Module):
 
-    def __init__(self, nc: int):
+    def __init__(self, nc: int, prop_type: str):
         super().__init__()
-
-        # nd = 1
-        # num_comps = 4
-        # self.distribution = GMMProp(nc, num_comps)
-
-        self.distribution = NormalProp(nc)
+        if prop_type in PROP_DISTR_CONFIG.keys():
+            self.prop_dist = PROP_DISTR_CONFIG[prop_type](nc)
+        else:
+            raise f'Unknown selected prop {prop_type},'
 
     def forward(self, y):
-        return self.distribution.logpdf(y)
+        return self.prop_dist.logpdf(y)
         
     def sample(self, n_samples):
-        return self.distribution.sample(n_samples)
+        print(self.prop_dist.distribution)
+        return self.prop_dist.sample(n_samples)
+
+PROP_DISTR_CONFIG = {
+    'logP': NormalProp,
+    'MW'  : NormalProp,
+    'QED' : BetaProp,
+}
 
 
 if __name__ == '__main__':
     model = BetaProp(10)
-    model.sample(100)
+    y_s = model.sample(100)
     y = torch.rand(64, 1)
     model(y)
+
+    model = BetaProp(10)
+    y_s = model.sample(100)
+    y = torch.rand(64, 1)
+    model(y)
+
+    model = GMMProp(10, 3)
+    y_s = model.sample(100)
+    y = torch.rand(64, 1)
+    model(y)
+
+    PropNetwork(10, 'logP')
