@@ -1,4 +1,5 @@
 import os
+import re
 import numpy as np
 import pandas as pd
 
@@ -102,10 +103,10 @@ def baseline_models_zinc250k():
         ['MoFlow',       r'63.11$\pm$5.17', r'0.046$\pm$0.002', r'20.93$\pm$0.18', r'99.99$\pm$0.01', r'100.00$\pm$0.00'],
         ['EDP-GNN',      r'82.97$\pm$2.73', r'0.049$\pm$0.006', r'16.74$\pm$1.30', r'99.79$\pm$0.08', r'100.00$\pm$0.00'],
         ['GraphEBM',     r' 5.29$\pm$3.83', r'0.212$\pm$0.005', r'35.47$\pm$5.33', r'98.79$\pm$0.15', r'100.00$\pm$0.00'],
-        ['SPECTRE',      r'90.20$\pm$n/a',  r'0.109$\pm$n/a',   r'18.44$\pm$ n/a', r'67.05$\pm$n/a',  r'100.00$\pm$n/a' ],
+        ['SPECTRE',      r'90.20$\pm$n/a',  r'0.109$\pm$n/a',   r'18.44$\pm$n/a',  r'67.05$\pm$n/a',  r'100.00$\pm$n/a' ],
         ['GDSS',         r'97.01$\pm$0.77', r'0.019$\pm$0.001', r'14.66$\pm$0.68', r'99.64$\pm$0.13', r'100.00$\pm$0.00'],
-        ['DiGress',      r'91.02$\pm$n/a',  r'0.082$\pm$n/a',   r'23.06$\pm$ n/a', r'81.23$\pm$n/a',  r'100.00$\pm$n/a' ],
-        ['GRAPHARM',     r'88.23$\pm$n/a',  r'0.055$\pm$n/a',   r'16.26$\pm$ n/a', r'99.46$\pm$n/a',  r'100.00$\pm$n/a' ]
+        ['DiGress',      r'91.02$\pm$n/a',  r'0.082$\pm$n/a',   r'23.06$\pm$n/a',  r'81.23$\pm$n/a',  r'100.00$\pm$n/a' ],
+        ['GRAPHARM',     r'88.23$\pm$n/a',  r'0.055$\pm$n/a',   r'16.26$\pm$n/a',  r'99.46$\pm$n/a',  r'100.00$\pm$n/a' ]
     ]
     return pd.DataFrame(rows, columns=COLUMN_NAMES)
 
@@ -128,7 +129,15 @@ def highlight_top3(x, type='max'):
 
     return styles
 
-def latexify_style(df, path, row_names=None, column_names=None, precision=2):
+def format_number(match):
+    number = float(match.group(1))
+    number_original = match.group(1)
+    if number < 10 or (number > 99.98 and number < 100.0):
+        return r"\phantom{0}" + number_original
+    else:
+        return number_original
+
+def latexify_style(df, path, row_names=None, column_names=None):
     if row_names is not None:
         df.replace(row_names, inplace=True)
     if column_names is not None:
@@ -141,13 +150,18 @@ def latexify_style(df, path, row_names=None, column_names=None, precision=2):
     s = s.apply(highlight_top3, type='min', subset=subset_min)
     s = s.apply(highlight_top3, type='max', subset=subset_max)
     s.hide()
-    s.format(precision=precision)
-    s.format(precision=3, subset=[('QM9','NSPDK'), ('Zinc250k','NSPDK')])
-    s.to_latex(path, hrules=True, multicol_align='c')
+    s.to_latex(
+        path,
+        # column_format='lcccccccccc',
+        hrules=True,
+        multicol_align='c'
+    )
 
     line = []
     with open(path, 'r') as file_data:
-        lines = file_data.read().splitlines()
+        file_data = re.sub(r'(\d*\.?\d+)(?=\s*\$\\pm\$)', format_number, file_data.read())
+
+        lines = file_data.splitlines()
         for w in lines[3].split():
             match w:
                 case 'Valid' | 'Unique' | 'Novel':
