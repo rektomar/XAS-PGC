@@ -197,8 +197,8 @@ def find_best(evaluation_dir, dataset, model, backends):
     for i, backend in enumerate(backends.keys()):
         b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
         g_frame = b_frame.groupby(list(filter(lambda x: x not in IGNORE, b_frame.columns)))
-        a_frame = g_frame.agg({'sam_valid': 'mean'})
-        f_frame = g_frame.get_group(a_frame['sam_valid'].idxmax())
+        a_frame = g_frame.agg({'sam_fcd_val': 'mean'})
+        f_frame = g_frame.get_group(a_frame['sam_fcd_val'].idxmin())
 
         d_frame.loc[i] = [
             BACKEND_NAMES[backend],
