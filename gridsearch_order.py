@@ -33,7 +33,7 @@ def find_best(evaluation_dir, dataset, model):
         gf = df[1].groupby(list(filter(lambda x: x not in IGNORE, df[1].columns)))
         af = gf.agg({'sam_valid': 'mean'})
         ff = gf.get_group(af['sam_valid'].idxmax())
-        f_frame.append(ff[['backend', 'order', 'sam_valid', 'sam_nspdk_tst', 'sam_fcd_tst', 'sam_unique', 'sam_novel']])
+        f_frame.append(ff[['backend', 'order', 'sam_valid', 'sam_nspdk_tst', 'sam_fcd_trn', 'sam_unique', 'sam_novel']])
 
     f_frame = pd.concat(f_frame).groupby(['backend', 'order'])
     f_frame_m = f_frame.mean()
@@ -54,7 +54,7 @@ def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
 
 if __name__ == "__main__":
     model = 'marg_sort'
-    dataset = 'qm9'
+    dataset = 'zinc250k'
 
     if dataset == 'qm9':
         ylim_nspdk = 0.1
@@ -105,7 +105,7 @@ if __name__ == "__main__":
         nextgrouplot(pic, frame_m['sam_valid'],     frame_s['sam_valid'],     r'Valid $\uparrow$')
         nextgrouplot(pic, frame_m['sam_unique'],    frame_s['sam_unique'],    r'Unique $\uparrow$')
         nextgrouplot(pic, frame_m['sam_novel'],     frame_s['sam_novel'],     r'Novel $\uparrow$')
-        nextgrouplot(pic, frame_m['sam_fcd_tst'],   frame_s['sam_fcd_tst'],   r'FCD $\downarrow$',   f'ymax={ylim_fcd}')
+        nextgrouplot(pic, frame_m['sam_fcd_trn'],   frame_s['sam_fcd_trn'],   r'FCD $\downarrow$',   f'ymax={ylim_fcd}')
         nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
 
         pic.append(NoEscape(r'\end{groupplot}'))
