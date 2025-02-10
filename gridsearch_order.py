@@ -55,8 +55,15 @@ def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
 if __name__ == "__main__":
     model = 'marg_sort'
     dataset = 'qm9'
-    ylim_nspdk = 0.1
-    ylim_fcd = 11.0
+
+    if dataset == 'qm9':
+        ylim_nspdk = 0.1
+        ylim_fcd = 13.0
+    elif dataset == 'zinc250k':
+        ylim_nspdk = 0.1
+        ylim_fcd = 35.0
+    else:
+        raise 'Unknown dataset'
 
     doc = Document(documentclass='standalone', document_options=('preview'), geometry_options={'margin': '1cm'})
     doc.packages.append(NoEscape(r'\usepackage{pgfplots}'))
@@ -105,4 +112,4 @@ if __name__ == "__main__":
 
         pic.append(NoEscape(r'\path (group c1r1.north east) -- node[above]{\ref{named}} (group c1r1.north west);'))
 
-    doc.generate_pdf('results/gridsearch_order', clean_tex=False)
+    doc.generate_pdf(f'results/gridsearch_order_{dataset}', clean_tex=False)

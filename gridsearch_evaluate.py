@@ -85,13 +85,13 @@ COLUMN_NAMES = [
         'Model',         'Valid',           'NSPDK',           'FCD',             'Unique',          'Novel']
 def baseline_models_qm9():
     rows = [
-        ['GraphAF',      r'74.43$\pm$2.55', r'0.021$\pm$0.003', r' 5.27$\pm$0.40', r'88.64$\pm$0.00', r'86.59$\pm$1.95'],
-        ['GraphDF',      r'93.88$\pm$4.76', r'0.064$\pm$0.000', r'10.93$\pm$0.04', r'98.58$\pm$0.00', r'98.54$\pm$0.48'],
-        ['MoFlow',       r'91.36$\pm$1.23', r'0.017$\pm$0.003', r' 4.47$\pm$0.60', r'98.65$\pm$0.00', r'94.72$\pm$0.77'],
-        ['EDP-GNN',      r'47.52$\pm$3.60', r'0.005$\pm$0.001', r' 2.68$\pm$0.22', r'99.25$\pm$0.00', r'86.58$\pm$1.85'],
-        ['GraphEBM',     r' 8.22$\pm$2.24', r'0.030$\pm$0.004', r' 6.14$\pm$0.41', r'97.90$\pm$0.00', r'97.01$\pm$0.17'],
+        ['GraphAF',      r'74.43$\pm$2.55', r'0.021$\pm$0.003', r' 5.27$\pm$0.40', r'88.64$\pm$2.37', r'86.59$\pm$1.95'],
+        ['GraphDF',      r'93.88$\pm$4.76', r'0.064$\pm$0.000', r'10.93$\pm$0.04', r'98.58$\pm$0.25', r'98.54$\pm$0.48'],
+        ['MoFlow',       r'91.36$\pm$1.23', r'0.017$\pm$0.003', r' 4.47$\pm$0.60', r'98.65$\pm$0.57', r'94.72$\pm$0.77'],
+        ['EDP-GNN',      r'47.52$\pm$3.60', r'0.005$\pm$0.001', r' 2.68$\pm$0.22', r'99.25$\pm$0.05', r'86.58$\pm$1.85'],
+        ['GraphEBM',     r' 8.22$\pm$2.24', r'0.030$\pm$0.004', r' 6.14$\pm$0.41', r'97.90$\pm$0.14', r'97.01$\pm$0.17'],
         ['SPECTRE',      r'87.30$\pm$n/a',  r'0.163$\pm$n/a',   r'47.96$\pm$n/a',  r'35.70$\pm$n/a',  r'97.28$\pm$n/a' ],
-        ['GDSS',         r'95.72$\pm$1.94', r'0.003$\pm$0.000', r' 2.90$\pm$0.28', r'98.46$\pm$0.00', r'86.27$\pm$2.29'],
+        ['GDSS',         r'95.72$\pm$1.94', r'0.003$\pm$0.000', r' 2.90$\pm$0.28', r'98.46$\pm$0.61', r'86.27$\pm$2.29'],
         ['DiGress',      r'99.00$\pm$0.10', r'0.005$\pm$n/a',   r' 0.36$\pm$n/a',  r'96.20$\pm$n/a',  r'33.40$\pm$n/a' ],
         ['GRAPHARM',     r'90.25$\pm$n/a',  r'0.002$\pm$n/a',   r' 1.22$\pm$n/a',  r'95.62$\pm$n/a',  r'70.39$\pm$n/a' ]
     ]
@@ -132,7 +132,7 @@ def highlight_top3(x, type='max'):
 def format_number(match):
     number = float(match.group(1))
     number_original = match.group(1)
-    if number < 10 or (number > 99.98 and number < 100.0):
+    if (number > 0.3 and number < 10) or (number > 99.98 and number < 100):
         return r"\phantom{0}" + number_original
     else:
         return number_original
