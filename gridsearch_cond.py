@@ -12,9 +12,10 @@ from utils.conditional import evaluate_conditional
 from rdkit import Chem, rdBase, RDLogger
 rdBase.DisableLog("rdApp.error")
 
+
 PATT_CONFIG = {
-    'qm9': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC'],
-    'zinc250k': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC']
+    'qm9': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'CC(C)=O'],
+    'zinc250k': ['NS(=O)C1=CC=CC=C1', 'CNC(C)=O', 'O=C1CCCN1', 'C1CCNCC1', 'NS(=O)=O']
 }
 
 BACKEND_NAMES = {
@@ -25,71 +26,7 @@ BACKEND_NAMES = {
     'ctree': 'HCLT'
 }
 
-IGNORE = [
-    'device',
-    'seed',
-    'sam_valid',
-    'sam_unique',
-    'sam_unique_abs',
-    'sam_novel',
-    'sam_novel_abs',
-    'sam_score',
-    'sam_m_stab',
-    'sam_a_stab',
-    'sam_fcd_trn',
-    'sam_kldiv_trn',
-    'sam_nspdk_trn',
-    'sam_fcd_val',
-    'sam_kldiv_val',
-    'sam_nspdk_val',
-    'sam_fcd_tst',
-    'sam_kldiv_tst',
-    'sam_nspdk_tst',
-    'res_valid',
-    'res_unique',
-    'res_unique_abs',
-    'res_novel',
-    'res_novel_abs',
-    'res_score',
-    'res_m_stab',
-    'res_a_stab',
-    'res_fcd_trn',
-    'res_kldiv_trn',
-    'res_nspdk_trn',
-    'res_fcd_val',
-    'res_kldiv_val',
-    'res_nspdk_val',
-    'res_fcd_tst',
-    'res_kldiv_tst',
-    'res_nspdk_tst',
-    'cor_valid',
-    'cor_unique',
-    'cor_unique_abs',
-    'cor_novel',
-    'cor_novel_abs',
-    'cor_score',
-    'cor_m_stab',
-    'cor_a_stab',
-    'cor_fcd_trn',
-    'cor_kldiv_trn',
-    'cor_nspdk_trn',
-    'cor_fcd_val',
-    'cor_kldiv_val',
-    'cor_nspdk_val',
-    'cor_fcd_tst',
-    'cor_kldiv_tst',
-    'cor_nspdk_tst',
-    'nll_trn_approx',
-    'nll_val_approx',
-    'nll_tst_approx',
-    'time_sam',
-    'time_res',
-    'time_cor',
-    'atom_list',
-    'num_params',
-    'model_path'
-    ]
-
+from gridsearch_evaluate import IGNORE
 
 from models import molspn_zero
 from models import molspn_marg
@@ -102,18 +39,18 @@ MODELS = {
 BASE_DIR_COND = f'{BASE_DIR}cond/'
 
 
-def find_best(evaluation_dir, dataset, model, backends):
+def find_best(evaluation_dir, dataset, model, backends, metric='sam_fcd_val', maximize=False):
     path_dict = {}
     path = evaluation_dir + f'metrics/{dataset}/{model}/'
 
     for i, backend in enumerate(backends.keys()):
         b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path) if backend in f])
-
-        # b_frame = b_frame.loc[b_frame['nc'] == 256]
         g_frame = b_frame.groupby(list(filter(lambda x: x not in IGNORE, b_frame.columns)))
-        a_frame = g_frame.agg({'sam_valid': 'mean'})
-        f_frame = g_frame.get_group(a_frame['sam_valid'].idxmax())
-
+        a_frame = g_frame.agg({metric: 'mean'})
+        if maximize:
+            f_frame = g_frame.get_group(a_frame[metric].idxmax())
+        else:
+            f_frame = g_frame.get_group(a_frame[metric].idxmin())
         path_dict[backend] = list(f_frame['model_path'])
 
     return path_dict
@@ -170,7 +107,6 @@ def submit_job(dataset, model, path_buffer, device, max_sub):
         run_wcount = subprocess.run(['wc', '-l'], input=run_squeue.stdout, capture_output=True)
         num_queued = int(run_wcount.stdout)
 
-        print(len(path_buffer), max_sub-num_queued)
         if len(path_buffer) <= max_sub - num_queued:
             if device == 'cuda':
                 subprocess.run(['sbatch',
@@ -232,9 +168,9 @@ if __name__ == "__main__":
                 for path_model in path_dict[backend]:
                     path_buffer.append(path_model)
                 
-                if len(path_buffer) == max_jobs_to_submit:
-                    submit_job(dataset, model, path_buffer, device, max_sub)
-                    path_buffer = []
+                    if len(path_buffer) == max_jobs_to_submit:
+                        submit_job(dataset, model, path_buffer, device, max_sub)
+                        path_buffer = []
             
             if len(path_buffer) > 1:
                 submit_job(dataset, model, path_buffer, device, max_sub)

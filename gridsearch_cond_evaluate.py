@@ -1,26 +1,13 @@
 import os
 import numpy as np
-import torch
 import pandas as pd
 
 from pylatex import Document, Package, NoEscape
+from gridsearch_cond import PATT_CONFIG
 
-from utils.datasets import MOLECULAR_DATASETS
-from utils.conditional import create_conditional_grid, evaluate_conditional
-from utils.plot import plot_grid_conditional, plot_grid_unconditional
-
-from rdkit import Chem, rdBase
+from rdkit import rdBase
 rdBase.DisableLog("rdApp.error")
 
-PATT_CONFIG = {
-    'qm9': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC'],
-    'zinc250k': ['C1OCC=C1', 'N1NO1', 'CCCO', 'C1CNC1', 'C1=CC=CC=C1', 'C1CN1C', 'N1C=CC=C1', 'COC']
-}
-
-# PATT_CONFIG = {
-#     'qm9': ['N1NO1'],
-#     'zinc250k': ['N1NO1']
-# }
 
 BACKEND_NAMES = {
     'btree': 'BT',
@@ -30,10 +17,8 @@ BACKEND_NAMES = {
     'ctree': 'HCLT'
 }
 
-# COLUMN_NAMES = [
-#         'Model',       'Valid', 'NSPDK', 'FCD', 'Unique',   'Novel']
 COLUMN_NAMES = [
-        'Occurence (Train)', 'Valid', 'NSPDK', 'FCD', 'Unique',   'Novel', 'nAt', 'nBo']
+        'Occurence (Train)', 'Valid', 'NSPDK', 'FCD', 'Unique', 'Novel', 'nAt', 'nBo']
 
 def highlight_top3(x, type='max'):
     styles = np.array(len(x)*[None])
@@ -65,7 +50,7 @@ def latexify_style(df, path, row_names=None, column_names=None, precision=2):
     patt_rename = {}
     for patt in df.index.levels[0]:
         occ = df.loc[patt, 'Occurence (Train)'].iloc[0]
-        patt_rename[patt] = f'{patt} ({occ:.1f}\%)'
+        patt_rename[patt] = f'{patt} ({int(occ):d})'
     df.rename(index=patt_rename, inplace=True)
 
     df.drop(columns=['Occurence (Train)'], inplace=True)
@@ -121,7 +106,10 @@ def latexify_table(r_name, w_name, clean_tex=True):
 
 def load_eval(evaluation_dir, dataset, model):
     path = evaluation_dir + f'{dataset}/{model}/'
-    b_frame = pd.concat([pd.read_csv(path + f) for f in os.listdir(path)])
+    df_list = []
+    for patt in PATT_CONFIG[dataset]:
+        df_list.extend([pd.read_csv(path + f) for f in os.listdir(path) if patt in f])
+    b_frame = pd.concat(df_list)
     return b_frame
 
 def conditional_table(b_frame, dataset, backends):
@@ -133,10 +121,10 @@ def conditional_table(b_frame, dataset, backends):
 
     for (idx, res_frame) in g_frame:
         d_frame.loc[idx] =  [
-                            100*res_frame['occ_trn'].mean(),
+                            res_frame['a_occ_trn'].mean(),
                             100*res_frame['valid'].mean(),
                             res_frame['nspdk_tst'].mean(skipna=False),
-                            res_frame['fcd_tst'].mean(skipna=False),
+                            res_frame['fcd_trn'].mean(skipna=False),
                             100*res_frame['unique'].mean(),
                             100*res_frame['novel'].mean(),
                             res_frame['nat_inc'].mean(),

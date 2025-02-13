@@ -5,7 +5,7 @@ rdBase.DisableLog("rdApp.error")
 
 from utils.molecular import mol2g, gs2mols, isvalid
 from utils.evaluate import evaluate_molecules, print_metrics
-from utils.datasets import load_dataset
+from utils.datasets import load_dataset, reorder_molecule
 
 import numpy as np
 
@@ -54,23 +54,24 @@ def sample_conditional(model, x, a, submol_size, num_samples, max_mol_size, atom
 
     return xc, ac, mol_sample, sml_sample
 
-def create_observed_mol(smile, max_mol_size, atom_list, device='cuda'):
+def create_observed_mol(smile, max_atom, atom_list, order='canonical', device='cuda'):
     """Create a submolecule to condition on.
     Parameters:
         smile             (str): smile of submolecule to condition on
         atom_list   (list[int]): list of feasible atom ids
         device       (str): target device of new mask
     Returns: 
-        xx (torch.Tensor): node feature tensor [1, max_mol_size, nc_x]
-        aa (torch.Tensor): adjacency tensor    [1, max_mol_size, max_mol_size, nc_a]
+        x (torch.Tensor): node feature tensor [1, max_atom, nc_x]
+        a (torch.Tensor): adjacency tensor    [1, max_atom, max_atom, nc_a]
         submol_size (int): number of atoms of molecule made from 'smile'
     """
     mol = Chem.MolFromSmiles(smile)
     Chem.Kekulize(mol)
-    xx, aa = mol2g(mol, max_mol_size, atom_list)
-    xx, aa = xx.unsqueeze(0).float().to(device), aa.unsqueeze(0).float().to(device)
+    x, a = mol2g(mol, max_atom, atom_list)
+    x, a, mol, s = reorder_molecule(x, a, mol, order, max_atom, atom_list)
+    x, a = x.unsqueeze(0).float().to(device), a.unsqueeze(0).float().to(device)
     submol_size = mol.GetNumAtoms()
-    return xx, aa, submol_size
+    return x, a, submol_size
 
 def filter_molecules(smls, patt_sml):
     patt = Chem.MolFromSmarts(patt_sml)
@@ -92,9 +93,13 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
     fsmls_tst = filter_molecules(loaders['smiles_tst'], patt_sml)
 
     occs = {}
-    occs['occ_trn'] = len(fsmls_trn)/len(loaders['smiles_trn']) if len(loaders['smiles_trn']) != 0 else 0
-    occs['occ_val'] = len(fsmls_val)/len(loaders['smiles_val']) if len(loaders['smiles_val']) != 0 else 0
-    occs['occ_tst'] = len(fsmls_tst)/len(loaders['smiles_tst']) if len(loaders['smiles_tst']) != 0 else 0
+    occs['a_occ_trn'] = len(fsmls_trn)
+    occs['a_occ_val'] = len(fsmls_val)
+    occs['a_occ_tst'] = len(fsmls_tst)
+
+    occs['r_occ_trn'] = len(fsmls_trn)/len(loaders['smiles_trn']) if len(loaders['smiles_trn']) != 0 else 0
+    occs['r_occ_val'] = len(fsmls_val)/len(loaders['smiles_val']) if len(loaders['smiles_val']) != 0 else 0
+    occs['r_occ_tst'] = len(fsmls_tst)/len(loaders['smiles_tst']) if len(loaders['smiles_tst']) != 0 else 0
 
     loaders['smiles_trn'] = fsmls_trn
     loaders['smiles_val'] = fsmls_val
@@ -112,7 +117,7 @@ def evaluate_conditional(model, patt_sml, dataset_name, max_atoms, atom_list, nu
 
     stats = {'nat_inc': np.mean(natoms_inc), 'nbo_inc': np.mean(nbonds_inc)}
 
-    metrics = evaluate_molecules(xc, ac, loaders, atom_list, evaluate_trn=False,
+    metrics = evaluate_molecules(xc, ac, loaders, atom_list, evaluate_trn=True,
                                                              evaluate_val=True,
                                                              evaluate_tst=True,
                                                              metrics_only=True)
