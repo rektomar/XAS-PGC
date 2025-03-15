@@ -31,8 +31,8 @@ def find_best(evaluation_dir, dataset, model):
     for df in g_frame:
         df[1].dropna(axis=1, how='all', inplace=True)
         gf = df[1].groupby(list(filter(lambda x: x not in IGNORE, df[1].columns)))
-        af = gf.agg({'sam_valid': 'mean'})
-        ff = gf.get_group(af['sam_valid'].idxmax())
+        af = gf.agg({'sam_fcd_val': 'mean'})
+        ff = gf.get_group(af['sam_fcd_val'].idxmin())
         f_frame.append(ff[['backend', 'order', 'sam_valid', 'sam_nspdk_tst', 'sam_fcd_trn', 'sam_unique', 'sam_novel']])
 
     f_frame = pd.concat(f_frame).groupby(['backend', 'order'])
@@ -54,14 +54,16 @@ def nextgrouplot(pic, data_m, data_s, ylabel, args=None):
 
 if __name__ == "__main__":
     model = 'marg_sort'
-    dataset = 'zinc250k'
+    dataset = 'qm9'
 
     if dataset == 'qm9':
-        ylim_nspdk = 0.1
-        ylim_fcd = 13.0
+        ylim_nspdk = 0.02
+        ylim_fcd = 5.0
+        yshift = ''
     elif dataset == 'zinc250k':
         ylim_nspdk = 0.1
         ylim_fcd = 35.0
+        yshift = r'y label style={at={(-0.23,0.5)}}'
     else:
         raise 'Unknown dataset'
 
@@ -106,7 +108,7 @@ if __name__ == "__main__":
         nextgrouplot(pic, frame_m['sam_unique'],    frame_s['sam_unique'],    r'Unique $\uparrow$')
         nextgrouplot(pic, frame_m['sam_novel'],     frame_s['sam_novel'],     r'Novel $\uparrow$')
         nextgrouplot(pic, frame_m['sam_fcd_trn'],   frame_s['sam_fcd_trn'],   r'FCD $\downarrow$',   f'ymax={ylim_fcd}')
-        nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + r'y label style={at={(-0.23,0.5)}}')
+        nextgrouplot(pic, frame_m['sam_nspdk_tst'], frame_s['sam_nspdk_tst'], r'NSPDK $\downarrow$', f'ymax={ylim_nspdk}, ' + yshift)
 
         pic.append(NoEscape(r'\end{groupplot}'))
 

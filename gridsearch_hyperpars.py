@@ -97,7 +97,6 @@ def grid_sort(dataset, model):
 
 
 GRIDS = {
-    # 'zero_sort': grid_sort,
     'marg_sort': grid_sort,
 }
 
