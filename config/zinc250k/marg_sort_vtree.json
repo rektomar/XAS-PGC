@@ -1,15 +1,19 @@
 {
-    "dataset": "polymer",
+    "dataset": "zinc250k",
     "model": "marg_sort",
     "order": "canonical",
     "model_hpars": {
-        "nc": 256,
-        "backend": "ctree",
+        "nc": 100,
+        "backend": "vtree",
         "bx_hpars": {
-            "nh": 256
+            "nl": 4,
+            "ns": 20,
+            "ni": 20
         },
         "ba_hpars": {
-            "nh": 256
+            "nl": 6,
+            "ns": 20,
+            "ni": 20
         },
         "device": "cuda"
     },
@@ -21,7 +25,7 @@
             0.82
         ]
     },
-    "num_epochs": 10,
+    "num_epochs": 40,
     "batch_size": 256,
     "seed": 0
 }

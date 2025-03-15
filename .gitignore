@@ -2,10 +2,3 @@ __pycache__
 data
 results
 gridsearch.log
-
-config/zinc250k/molspn_hclt_sort.json
-config/zinc250k/molspn_mclt_sort.json
-config/qm9/molspn_hclt_sort.json
-config/zinc250k/molspn_marg_sort.json
-
-utils/graph_features_molecular.py

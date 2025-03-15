@@ -163,7 +163,7 @@ def latexify_grid(dataset, model_name, backend):
 
 
 if __name__ == "__main__":
-    evaluation_dir = '/mnt/data/density_learning/molspn/gs0/eval/'
+    evaluation_dir = '/mnt/data/density_learning/pgc/gs0/eval/'
 
     ### QM9 ###
     path_frame = find_best(evaluation_dir, 'qm9', 'marg_sort')

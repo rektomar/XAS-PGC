@@ -39,7 +39,7 @@ def nextgrouplot(pic, evaluation_dir, dataset, model, backends, ydata, ylabel, a
 
 
 if __name__ == "__main__":
-    model = 'zero_sort'
+    model = 'marg_sort'
     dataset = 'qm9'
     ylim_nspdk = 0.1
     ylim_fcd = 10.0

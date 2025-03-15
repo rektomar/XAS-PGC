@@ -5,7 +5,7 @@ from models.backend import backend_selector
 from typing import Optional
 
 
-class MolSPNMargSort(nn.Module):
+class PGCMargSort(nn.Module):
     def __init__(self,
                  loader_trn,
                  hpars
@@ -140,5 +140,5 @@ class MolSPNMargSort(nn.Module):
 
 
 MODELS = {
-    'marg_sort': MolSPNMargSort,
+    'marg_sort': PGCMargSort,
 }

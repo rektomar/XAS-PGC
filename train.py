@@ -6,29 +6,26 @@ from utils.datasets import MOLECULAR_DATASETS, BASE_DIR, load_dataset
 from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
-from models import molspn_zero
-from models import molspn_marg
+from models import pgc_marg
 
 MODELS = {
-    **molspn_zero.MODELS,
-    **molspn_marg.MODELS
+    **pgc_marg.MODELS
 }
 
 BASE_DIR_TRN = f'{BASE_DIR}trn/'
 
 if __name__ == '__main__':
     torch.set_float32_matmul_precision('medium')
-    # torch.set_printoptions(threshold=10_000, linewidth=200)
     RDLogger.DisableLog('rdApp.*')
 
     dataset = 'qm9'
 
     backends = [
-        # 'zero_sort_btree'
-        # 'zero_sort_vtree'
-        # 'zero_sort_rtree'
-        # 'zero_sort_ptree'
-        'zero_sort_ctree'
+        # 'marg_sort_btree'
+        # 'marg_sort_vtree'
+        # 'marg_sort_rtree'
+        # 'marg_sort_ptree'
+        'marg_sort_ctree'
     ]
 
     for backend in backends:

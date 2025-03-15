@@ -10,14 +10,12 @@ from utils.datasets import MOLECULAR_DATASETS, BASE_DIR, load_dataset
 from utils.train import train, evaluate, dict2str, flatten_dict, backend_hpars_prefix
 from utils.evaluate import count_parameters
 
-from models import molspn_zero
-from models import molspn_marg
+from models import pgc_marg
 
 # nohup python -m gridsearch > gridsearch.log &
 
 MODELS = {
-    **molspn_zero.MODELS,
-    **molspn_marg.MODELS
+    **pgc_marg.MODELS
     }
 
 BASE_DIR_GS = f'{BASE_DIR}gs0/'
@@ -49,7 +47,7 @@ def submit_job(dataset, model, par_buffer, device, max_sub):
     outputlogs_dir = BASE_DIR_GS + f'logs/{dataset}/'
     par_buffer_str = str(par_buffer).replace("'", '"')
     cmd_python = "from gridsearch import unsupervised\n" + f'unsupervised("{dataset}", "{model}", {par_buffer_str})'
-    cmd_sbatch = "conda activate molspn\n" + f"python -c '{cmd_python}'"
+    cmd_sbatch = "conda activate pgc\n" + f"python -c '{cmd_python}'"
 
     while True:
         run_squeue = subprocess.run(['squeue', f'--user={os.environ["USER"]}', '-h', '-r'], stdout=subprocess.PIPE)
@@ -90,7 +88,6 @@ if __name__ == "__main__":
     par_buffer = []
     all_models = [
         'marg_sort',
-        # 'zero_sort',
     ]
     gpu_models = MODELS.keys()
 

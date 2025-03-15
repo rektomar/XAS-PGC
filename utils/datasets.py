@@ -16,7 +16,7 @@ from scipy.sparse.csgraph import breadth_first_order, depth_first_order, reverse
 
 from utils.props import calculate_props
 
-BASE_DIR = '/mnt/data/density_learning/molspn/'
+BASE_DIR = 'results/'
 
 MOLECULAR_DATASETS = {
     'qm9': {
@@ -195,13 +195,14 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
     for smls in tqdm(smls_list):
         mol = Chem.MolFromSmiles(smls)
         n = mol.GetNumAtoms()
-        props = calculate_props(mol)
 
-        p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
-        x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
-        x, a, mol, s = reorder_molecule(x, a, mol, order, max_atom, atom_list)
+        if n > 1:
+            props = calculate_props(mol)
+            p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
+            x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
+            x, a, mol, s = reorder_molecule(x, a, mol, order, max_atom, atom_list)
 
-        data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, **props})
+            data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, **props})
 
     torch.save(data_list, f'{path}_{order}.pt')
 
@@ -215,7 +216,7 @@ class DictDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.data)
 
-def load_dataset(name, batch_size, split, seed=0, dir='/mnt/data/density_learning/molspn/data/', order='canonical'):
+def load_dataset(name, batch_size, split, seed=0, dir='data/', order='canonical'):
     x = DictDataset(torch.load(f'{dir}{name}_{order}.pt', weights_only=True))
 
     torch.manual_seed(seed)
@@ -245,7 +246,7 @@ if __name__ == '__main__':
 
     download = True
     dataset = 'qm9'
-    orders = ['rand', 'unordered']
+    orders = ['canonical', 'bft', 'dft', 'rcm', 'rand']
 
     for order in orders:
         if download:

@@ -129,11 +129,11 @@ def conditional_table(b_frame, dataset, backends):
                             100*res_frame['novel'].mean(),
                             res_frame['nat_inc'].mean(),
                             res_frame['nbo_inc'].mean()]
-            
+
     return d_frame
 
 if __name__ == "__main__":
-    evaluation_dir = '/mnt/data/density_learning/molspn/cond/'
+    evaluation_dir = '/mnt/data/density_learning/pgc/cond/'
 
     df_qm9 = load_eval(evaluation_dir, 'qm9', 'marg_sort')
     ourmodels_qm9 = conditional_table(df_qm9, 'qm9', BACKEND_NAMES.keys())
@@ -147,6 +147,3 @@ if __name__ == "__main__":
 
     latexify_style(ourmodels_zinc250k, 'results/conditional_zinc250k.tab')
     latexify_table('results/conditional_zinc250k.tab', 'results/conditional_zinc250k')
-
-
-

@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 Milan Papez, Martin Rektoris, Vaclav Smidl, Tomas Pevny.
+Copyright (c) 2025 Milan Papez, Martin Rektoris, Vaclav Smidl, Tomas Pevny.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

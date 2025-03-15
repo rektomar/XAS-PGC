@@ -28,12 +28,10 @@ BACKEND_NAMES = {
 
 from gridsearch_evaluate import IGNORE
 
-from models import molspn_zero
-from models import molspn_marg
+from models import pgc_marg
 
 MODELS = {
-    **molspn_zero.MODELS,
-    **molspn_marg.MODELS
+    **pgc_marg.MODELS
     }
 
 BASE_DIR_COND = f'{BASE_DIR}cond/'
@@ -100,7 +98,7 @@ def submit_job(dataset, model, path_buffer, device, max_sub):
     outputlogs_dir = BASE_DIR_COND + f'logs/{dataset}/'
     path_buffer_str = str(path_buffer).replace("'", '"')
     cmd_python = "from gridsearch_cond import cond_eval\n" + f'cond_eval("{dataset}", "{model}", {path_buffer_str})'
-    cmd_sbatch = "conda activate molspn\n" + f"python -c '{cmd_python}'"
+    cmd_sbatch = "conda activate pgc\n" + f"python -c '{cmd_python}'"
 
     while True:
         run_squeue = subprocess.run(['squeue', f'--user={os.environ["USER"]}', '-h', '-r'], stdout=subprocess.PIPE)
@@ -138,13 +136,12 @@ def submit_job(dataset, model, path_buffer, device, max_sub):
 
 
 if __name__ == "__main__":
-    evaluation_dir = '/mnt/data/density_learning/molspn/gs0/eval/'
+    evaluation_dir = '/mnt/data/density_learning/pgc/gs0/eval/'
 
 
     path_buffer = []
     all_models = [
         'marg_sort',
-        # 'zero_sort',
     ]
     gpu_models = MODELS.keys()
 

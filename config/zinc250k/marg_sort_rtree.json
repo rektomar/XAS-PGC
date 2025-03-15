@@ -1,6 +1,6 @@
 {
     "dataset": "zinc250k",
-    "model": "zero_sort",
+    "model": "marg_sort",
     "order": "canonical",
     "model_hpars": {
         "nc": 100,

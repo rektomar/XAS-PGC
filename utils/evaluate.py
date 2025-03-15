@@ -1,10 +1,95 @@
 import torch
-from rdkit import Chem
-from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols
+import numpy as np
+import pandas as pd
+import networkx as nx
 
-from utils.metrics.nspdk import metric_nspdk
-from utils.metrics.kldiv import metric_k
-from utils.metrics.fcd import metric_f 
+from fcd_torch import FCD
+from rdkit import Chem
+from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols 
+from sklearn.metrics.pairwise import pairwise_kernels
+from scipy.stats import entropy, gaussian_kde
+from utils.props import calculate_props_df
+from eden.graph import vectorize
+
+
+# (So far) requires additional installation of:
+#   Cython (for eden) - pip install cython
+#   eden - pip install git+https://github.com/fabriziocosta/EDeN.git
+#   scikit-learn - pip install scikit-learn
+
+def mols_to_nx(mols):
+    nx_graphs = []
+    for mol in mols:
+        G = nx.Graph()
+
+        for atom in mol.GetAtoms():
+            G.add_node(atom.GetIdx(),
+                       label=atom.GetSymbol())
+
+        for bond in mol.GetBonds():
+            G.add_edge(bond.GetBeginAtomIdx(),
+                       bond.GetEndAtomIdx(),
+                       label=int(bond.GetBondTypeAsDouble()))
+
+        nx_graphs.append(G)
+    return nx_graphs
+
+def kernel_compute(X, Y=None, n_jobs=None):
+    X = vectorize(X, complexity=4, discrete=True)
+    if Y is not None:
+        Y = vectorize(Y, complexity=4, discrete=True)
+    return pairwise_kernels(X, Y, metric='linear', n_jobs=n_jobs)
+
+### code adapted from https://github.com/idea-iitd/graphgen/blob/master/metrics/mmd.py
+def compute_nspdk_mmd(samples1, samples2, n_jobs=None):
+
+    X = kernel_compute(samples1,             n_jobs=n_jobs)
+    Y = kernel_compute(samples2,             n_jobs=n_jobs)
+    Z = kernel_compute(samples1, Y=samples2, n_jobs=n_jobs)
+
+    return np.average(X) + np.average(Y) - 2 * np.average(Z)
+
+##### code adapted from https://github.com/idea-iitd/graphgen/blob/master/metrics/stats.py
+def nspdk_stats(graph_ref_list, graph_pred_list):
+    graph_pred_list_remove_empty = [G for G in graph_pred_list if not G.number_of_nodes() == 0]
+    mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, n_jobs=20)
+    return mmd_dist
+
+def continuous_kldiv(X_baseline, X_sampled) -> float:
+    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
+    kde_P = gaussian_kde(X_baseline)
+    kde_Q = gaussian_kde(X_sampled)
+    x_eval = np.linspace(np.hstack([X_baseline, X_sampled]).min(), np.hstack([X_baseline, X_sampled]).max(), num=1000)
+    P = kde_P(x_eval) + 1e-10
+    Q = kde_Q(x_eval) + 1e-10
+
+    return entropy(P, Q)
+
+def discrete_kldiv(X_baseline, X_sampled) -> float:
+    P, bin_edges = np.histogram(X_baseline, bins=10, density=True)
+    P += 1e-10 
+
+    Q, _ = np.histogram(X_sampled, bins=bin_edges, density=True)
+    Q += 1e-10
+
+    return entropy(P, Q) 
+
+def prop_kldiv(props_gen: pd.DataFrame, props_ref: pd.DataFrame):
+    kldivs = {}
+    for p in ['BCT', 'logP', 'MW', 'TPSA']:
+        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
+        kldivs[p] = kldiv
+
+    for p in ['numHBA', 'numHBD', 'numRB', 'numAlR', 'numArR']:
+        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
+        kldivs[p] = kldiv
+
+    # missing internal pairwise similarities
+
+    partial_scores = [np.exp(-score) for score in kldivs.values()]
+    score = np.sum(partial_scores) / len(partial_scores)
+
+    return score
 
 
 def metric_v(vmols, num_mols):
@@ -46,6 +131,34 @@ def metric_s(mols, num_mols):
         sum_atoms += num_atoms
 
     return mols_stable / float(num_mols), bond_stable / float(sum_atoms)
+
+def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
+    if len(smls_gen) < 2 or len(smls_ref) < 2:
+        return np.nan
+    fcd = FCD(device=device, n_jobs=2, canonize=canonical)
+    return fcd(smls_ref, smls_gen)
+
+def metric_k(smls_gen, smls_ref):
+    if len(smls_gen) < 2 or len(smls_ref) < 2:
+        return np.nan
+    mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
+    mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
+
+    props_gen = calculate_props_df(mols_gen)
+    props_ref = calculate_props_df(mols_ref)
+    return prop_kldiv(props_gen, props_ref)
+
+def metric_nspdk(smls_gen, smls_ref):
+    if len(smls_gen) < 2 or len(smls_ref) < 2:
+        return np.nan
+    mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
+    mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
+
+    graphs_gen = mols_to_nx(mols_gen)
+    graphs_ref = mols_to_nx(mols_ref)
+
+    return nspdk_stats(graphs_ref, graphs_gen)
+
 
 def evaluate_molecules(
         x,
@@ -218,3 +331,25 @@ if __name__ == '__main__':
             'CN1C(=O)C2C(O)C21C'
         ]
     test_metrics(gsmls, tsmls, max_atom, atom_list)
+
+
+    smls_1 = [
+        'CCC1(C)CN1C(C)=O',
+        'O=CC1=COC(=O)N=C1',
+        'O=CC1(C=O)CN=CO1',
+    ]
+
+    smls_2 = [
+        'CC1(C)CN1C(C)=O',
+        'O=CC1=COC(=O)N=C1',
+        'O=CC1(C=O)CN=CO1'
+        ]
+
+    nspdk = metric_nspdk(smls_1, smls_2)
+    print(f'NSPDK score: {nspdk}')
+
+    fcd = metric_f(smls_1, smls_2)
+    print(f'fcd: {fcd}')
+
+    kldiv = metric_k(smls_1, smls_2)
+    print(f'KLdiv score: {kldiv}')

@@ -42,7 +42,7 @@ def create_grid(path_model, dataset, num_to_show=8, num_to_sample=2000, seed=0, 
 
 
 if __name__ == '__main__':
-    evaluation_dir = '/mnt/data/density_learning/molspn/gs0/eval/'
+    evaluation_dir = '/mnt/data/density_learning/pgc/gs0/eval/'
 
     path_model_qm9 = find_best(evaluation_dir, 'qm9', 'marg_sort')
     print(path_model_qm9)

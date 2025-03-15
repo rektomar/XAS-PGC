@@ -21,7 +21,7 @@ patt_eval_config = {
 }
 
 model_path_config = {
-    'qm9': 'results/training/model_checkpoint/qm9/zero_sort/dataset=qm9_model=zero_sort_order=canonical_nc=512_backend=ctree_xnh=512_anh=512_device=cuda_lr=0.05_betas=[0.9, 0.82]_num_epochs=10_batch_size=256_seed=0.pt',
+    'qm9': 'results/training/model_checkpoint/qm9/marg_sort/dataset=qm9_model=marg_sort_order=canonical_nc=512_backend=ctree_xnh=512_anh=512_device=cuda_lr=0.05_betas=[0.9, 0.82]_num_epochs=10_batch_size=256_seed=0.pt',
     'zinc250k': 'results/training/model_checkpoint/zinc250k/marg_sort/dataset=zinc250k_model=marg_sort_order=canonical_nc=256_backend=ctree_xnh=256_anh=256_device=cuda_lr=0.05_betas=[0.9, 0.82]_num_epochs=10_batch_size=256_seed=0.pt'
 }
 
