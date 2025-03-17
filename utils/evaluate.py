@@ -7,8 +7,6 @@ from fcd_torch import FCD
 from rdkit import Chem
 from utils.molecular import mols2gs, gs2mols, mols2smls, get_vmols 
 from sklearn.metrics.pairwise import pairwise_kernels
-from scipy.stats import entropy, gaussian_kde
-from utils.props import calculate_props_df
 from eden.graph import vectorize
 
 
@@ -55,43 +53,6 @@ def nspdk_stats(graph_ref_list, graph_pred_list):
     mmd_dist = compute_nspdk_mmd(graph_ref_list, graph_pred_list_remove_empty, n_jobs=20)
     return mmd_dist
 
-def continuous_kldiv(X_baseline, X_sampled) -> float:
-    # taken from https://github.com/BenevolentAI/guacamol/blob/master/guacamol/utils/chemistry.py
-    kde_P = gaussian_kde(X_baseline)
-    kde_Q = gaussian_kde(X_sampled)
-    x_eval = np.linspace(np.hstack([X_baseline, X_sampled]).min(), np.hstack([X_baseline, X_sampled]).max(), num=1000)
-    P = kde_P(x_eval) + 1e-10
-    Q = kde_Q(x_eval) + 1e-10
-
-    return entropy(P, Q)
-
-def discrete_kldiv(X_baseline, X_sampled) -> float:
-    P, bin_edges = np.histogram(X_baseline, bins=10, density=True)
-    P += 1e-10 
-
-    Q, _ = np.histogram(X_sampled, bins=bin_edges, density=True)
-    Q += 1e-10
-
-    return entropy(P, Q) 
-
-def prop_kldiv(props_gen: pd.DataFrame, props_ref: pd.DataFrame):
-    kldivs = {}
-    for p in ['BCT', 'logP', 'MW', 'TPSA']:
-        kldiv = continuous_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
-        kldivs[p] = kldiv
-
-    for p in ['numHBA', 'numHBD', 'numRB', 'numAlR', 'numArR']:
-        kldiv = discrete_kldiv(X_baseline=props_ref[p], X_sampled=props_gen[p])
-        kldivs[p] = kldiv
-
-    # missing internal pairwise similarities
-
-    partial_scores = [np.exp(-score) for score in kldivs.values()]
-    score = np.sum(partial_scores) / len(partial_scores)
-
-    return score
-
-
 def metric_v(vmols, num_mols):
     return len(vmols) / num_mols
 
@@ -137,16 +98,6 @@ def metric_f(smls_gen, smls_ref, device="cuda", canonical=True):
         return np.nan
     fcd = FCD(device=device, n_jobs=2, canonize=canonical)
     return fcd(smls_ref, smls_gen)
-
-def metric_k(smls_gen, smls_ref):
-    if len(smls_gen) < 2 or len(smls_ref) < 2:
-        return np.nan
-    mols_gen = [Chem.MolFromSmiles(s) for s in smls_gen]
-    mols_ref = [Chem.MolFromSmiles(s) for s in smls_ref]
-
-    props_gen = calculate_props_df(mols_gen)
-    props_ref = calculate_props_df(mols_ref)
-    return prop_kldiv(props_gen, props_ref)
 
 def metric_nspdk(smls_gen, smls_ref):
     if len(smls_gen) < 2 or len(smls_ref) < 2:
@@ -199,19 +150,16 @@ def evaluate_molecules(
     if evaluate_trn == True:
         metrics = metrics | {
             f'{preffix}fcd_trn'  : metric_f(vsmls, loaders['smiles_trn'], device, canonical),
-            f'{preffix}kldiv_trn': metric_k(vsmls, loaders['smiles_trn']),
             # f'{preffix}nspdk_trn': metric_nspdk(vsmls, loaders['smiles_trn']),
         }
     if evaluate_val == True:
         metrics = metrics | {
             f'{preffix}fcd_val'  : metric_f(vsmls, loaders['smiles_val'], device, canonical),
-            f'{preffix}kldiv_val': metric_k(vsmls, loaders['smiles_val']),
             f'{preffix}nspdk_val': metric_nspdk(vsmls, loaders['smiles_val']),
         }
     if evaluate_tst == True:
         metrics = metrics | {
             f'{preffix}fcd_tst'  : metric_f(vsmls, loaders['smiles_tst'], device, canonical),
-            f'{preffix}kldiv_tst': metric_k(vsmls, loaders['smiles_tst']),
             f'{preffix}nspdk_tst': metric_nspdk(vsmls, loaders['smiles_tst']),
         }
 
@@ -350,6 +298,3 @@ if __name__ == '__main__':
 
     fcd = metric_f(smls_1, smls_2)
     print(f'fcd: {fcd}')
-
-    kldiv = metric_k(smls_1, smls_2)
-    print(f'KLdiv score: {kldiv}')

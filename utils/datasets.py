@@ -10,11 +10,9 @@ from rdkit import RDLogger
 
 from utils.molecular import mol2g, g2mol
 from utils.graphs import permute_graph, flatten_tril
-from utils.evaluate import evaluate_molecules
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import breadth_first_order, depth_first_order, reverse_cuthill_mckee
 
-from utils.props import calculate_props
 
 BASE_DIR = 'results/'
 
@@ -197,12 +195,11 @@ def preprocess(path, smile_col, max_atom, atom_list, order='canonical'):
         n = mol.GetNumAtoms()
 
         if n > 1:
-            props = calculate_props(mol)
             p = torch.cat((torch.randperm(n), torch.arange(n, max_atom)))
             x, a, mol = perm_molecule(mol, p, max_atom, atom_list)
             x, a, mol, s = reorder_molecule(x, a, mol, order, max_atom, atom_list)
 
-            data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s, **props})
+            data_list.append({'x': x, 'a': flatten_tril(a, max_atom), 'n': n, 's': s})
 
     torch.save(data_list, f'{path}_{order}.pt')
 
@@ -245,8 +242,8 @@ if __name__ == '__main__':
     torch.set_printoptions(threshold=10_000, linewidth=200)
 
     download = True
-    dataset = 'qm9'
-    orders = ['canonical', 'bft', 'dft', 'rcm', 'rand']
+    dataset = 'zinc250k'
+    orders = ['bft']
 
     for order in orders:
         if download:
