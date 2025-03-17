@@ -63,7 +63,7 @@ It will train all the PGC variants (or only the selected ones if you change the 
 
 The resulting models will be stored in `results/training/model_checkpoint/`, and the corresponding illustrations of unconditional molecule generation, along with the metrics assessing the performance of the models, will be stored in `results/training/model_evaluation/`.
 
-<img src="plots/unconditional_generation.png" width="500"/>
+<img src="plots/unconditional_generation.png" width="600"/>
 
 *Unconditional samples of molecular graphs from the PT-S variant of PGCs (`pgc_marg`).*
 
@@ -87,6 +87,6 @@ python -m conditional_sampling
 ```
 To impose a known structure of the generated molecules, change `patt_smls` in `conditional_sampling.py`. Similarly, to select a model from which to generate the samples, change `model_path`.
 
-<img src="plots/conditional_generation.png" width="500"/>
+<img src="plots/conditional_generation.png" width="600"/>
 
 *Conditional samples of molecular graphs from the PT-S variant of PGCs (`pgc_marg`). The known part of a molecule is highlighted in blue.*
