@@ -1,6 +1,6 @@
 # Probabilistic Graph Circuits (PGCs)
 
-This repository contains the code for the following paper: *Papež M, Rektoris M, Šmídl V, Pevný T. [Probabilistic Graph Circuits: Deep Generative Models for Tractable Probabilistic Inference over Graphs]().*
+This repository contains the code for the following paper: *Papež M, Rektoris M, Šmídl V, Pevný T. [Probabilistic Graph Circuits: Deep Generative Models for Tractable Probabilistic Inference over Graphs](http://arxiv.org/abs/2503.12162).*
 
 <!-- ![](plots/pgc.png "An example of a PGC for undirected acyclic graphs.") -->
 
