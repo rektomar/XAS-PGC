@@ -22,12 +22,12 @@ This repository contains the code for the following paper: *Papež M, Rektoris M
 
 Clone this repository.
 ```
-git clone https://github.com/mlnpapez/PGCs PGCs
+git clone https://github.com/mlnpapez/PGC PGC
 ```
 
 Go to the PGCs directory.
 ```
-cd PGCs
+cd PGC
 ```
 
 Set up the environment.
