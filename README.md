@@ -9,12 +9,11 @@ This repository contains the code for the following paper: *Papež M, Rektoris M
 *An example of a PGC for undirected acyclic graphs.* (a) We consider a graph $`\mathbf{G}`$ represented by a feature matrix, $`\mathbf{X}`$, and an adjacency tensor, $`\mathbf{A}`$, such that each instance of $`\mathbf{G}`$ (highlighted in green and blue) has a random number of nodes, $`n\in(0,1,\ldots,m)`$, where $`m`$ is a fixed maximum number of nodes. The empty places (white) are not included in the training data. (b) The main building block of PGCs is the $`n`$-conditioned joint distribution over $`\mathbf{X}^n`$ and $`\mathbf{L}^n`$, the latter of which is a flattened lower triangular part of $`\mathbf{A}^n`$. $`\mathbf{X}^n`$ and $`\mathbf{L}^n`$ are used as input into the node-PC and edge-PC, respectively. The empty places are marginalized out (grey). The outputs of these two PCs are passed through the product layer with $`n_c`$ units and the sum layer with a single unit.
 
 ```
-@inproceedings{papez2025probabilistic,
- title={Probabilistic Graph Circuits: Deep Generative Models for Tractable Probabilistic Inference over Graphs},
- author={Milan Pape\v{z} and Martin Rektoris and V\'{a}clav \v{S}m\'{i}dl and Tom\'{a}\v{s} Pevn\'{y}},
- booktitle={},
- year={2025},
- url={}
+@article{papez2025probabilistic,
+  title={Probabilistic Graph Circuits: Deep Generative Models for Tractable Probabilistic Inference over Graphs},
+  author={Pape{\v{z}}, Milan and Rektoris, Martin and {\v{S}}m{\'\i}dl, V{\'a}clav and Pevn{\'y}, Tom{\'a}{\v{s}}},
+  journal={arXiv preprint arXiv:2503.12162},
+  year={2025}
 }
 ```
 
