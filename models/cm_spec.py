@@ -127,7 +127,7 @@ class HybridDecoder(nn.Module):
         log_prob = torch.zeros(len(x_spec), len(z), device=self.device)     # (batch_size, num_chunks*chunk_size)
         for c in torch.arange(len(z)).chunk(num_chunks):
             _, _, m_spec, logs_spec = self.network(z[c, :].to(self.device))  # (chunk_size, nd_node, nk_node), (chunk_size, nd_edge, nk_edge)
-            log_prob[:, c] = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+1e-8).log_prob(x_spec).sum(dim=2)
+            log_prob[:, c] = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+self.eps).log_prob(x_spec).sum(dim=2)
 
         return log_prob
     
@@ -139,7 +139,7 @@ class HybridDecoder(nn.Module):
         for c in torch.arange(len(z)).chunk(num_chunks):
             _, _, m_spec, logs_spec = self.network(z[c, :].to(self.device))  # (chunk_size, nd_node, nk_node), (chunk_size, nd_edge, nk_edge)
             m_specs[c] = m_spec
-            s_specs[c] = torch.nn.functional.softplus(logs_spec)+1e-8
+            s_specs[c] = torch.nn.functional.softplus(logs_spec)+self.eps
         return m_specs, s_specs
     
     @torch.no_grad
@@ -167,7 +167,7 @@ class HybridDecoder(nn.Module):
             logit_node, logit_edge, m_spec, logs_spec = self.network(z[c, :].to(self.device))
             log_prob_node = Categorical(logits=logit_node).log_prob(x_node) # (batch_size, chunk_size, nd_node)
             log_prob_edge = Categorical(logits=logit_edge).log_prob(x_edge) # (batch_size, chunk_size, nd_edge)
-            log_prob_spec = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+1e-8).log_prob(x_spec)  # (batch_size, chunk_size, 100)
+            log_prob_spec = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+self.eps).log_prob(x_spec)  # (batch_size, chunk_size, 100)
             log_prob[:, c] = log_prob_node.sum(dim=2) + log_prob_edge.sum(dim=2) + log_prob_spec.sum(dim=2)
 
         return log_prob
@@ -177,7 +177,7 @@ class HybridDecoder(nn.Module):
         logit_node, logit_edge, m_spec, logs_spec = self.network(z[k].to(self.device))
         x_node = Categorical(logits=logit_node).sample()
         x_edge = Categorical(logits=logit_edge).sample()
-        x_spec = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+1e-8).sample()
+        x_spec = Normal(m_spec, torch.nn.functional.softplus(logs_spec)+self.eps).sample()
         return x_node, x_edge, x_spec
 
 
