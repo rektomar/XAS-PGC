@@ -1,0 +1,32 @@
+{
+    "dataset": "qm9xas",
+    "order": "canonical",
+    "model": "pgc_ffnn_spec",
+    "model_hpars": {
+        "nd_n": 9,
+        "nd_s": 100,
+        "nk_n": 5,
+        "nk_e": 4,
+        "nz": 32,
+        "nh": 2048,
+        "nl_b": 5,
+        "nl_n": 3,
+        "nl_e": 3,
+        "nl_s": 3,
+        "nb": 16384,
+        "nc": 2,
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hpars": {
+        "lr": 0.001,
+        "betas": [
+            0.9,
+            0.999
+        ],
+        "weight_decay": 0e-4
+    },
+    "num_epochs": 100,
+    "batch_size": 256,
+    "seed": 0
+}

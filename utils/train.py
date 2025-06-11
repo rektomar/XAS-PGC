@@ -46,8 +46,9 @@ def run_epoch(model, loader, optimizer=[], verbose=False):
     for b in tqdm(loader, leave=False, disable=verbose):
         x = b['x'].to(model.device)
         a = b['a'].to(model.device)
-        a = unflatt_tril(a, x.size(1))
-        nll = -model.logpdf(x, a)
+        spec = b['spec'].to(model.device)
+        # a = unflatt_tril(a, x.size(1))
+        nll = -model.logpdf(x, a, spec)
         nll_sum += nll
         if optimizer:
             optimizer.zero_grad()
