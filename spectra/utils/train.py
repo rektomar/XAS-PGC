@@ -4,10 +4,8 @@ import torch.optim as optim
 
 from tqdm import tqdm
 
-from utils.evaluate import rse
+from utils.evaluate import eval_metrics
 
-
-# from utils.evaluate import evaluate_molecules, resample_invalid_mols, count_parameters, print_metrics
 
 IGNORED_HYPERPARS = [
     'atom_list',
@@ -40,26 +38,6 @@ def run_epoch(model, loader, optimizer=[], verbose=False):
     return nll_sum.item() / n
 
 
-def eval_metrics(model, loaders):
-    t = loaders['transform']
-    train_rse = []
-    for b in loaders['loader_trn']:
-        x = b.float().to(model.device)
-        x_hat = model.reconstruct(x)
-        train_rse.append(rse(t.inverse(x.to('cpu')), t.inverse(x_hat.to('cpu'))))
-    train_rse = torch.cat(train_rse)
-    train_rse = torch.mean(train_rse[train_rse<1])
-
-    val_rse = []
-    for b in loaders['loader_val']:
-        x = b.float().to(model.device)
-        x_hat = model.reconstruct(x)
-        val_rse.append(rse(t.inverse(x.to('cpu')), t.inverse(x_hat.to('cpu'))))
-    val_rse = torch.cat(val_rse)
-    val_rse = torch.mean(val_rse[val_rse<1])
-
-    return f"trn_rse: {train_rse:.3f}, val_rse: {val_rse:.3f}"
-
 def train(
         model,
         loaders,
@@ -86,7 +64,7 @@ def train(
         metrics = eval_metrics(model, loaders)
 
         metric = run_epoch(model, loaders['loader_val'], verbose=verbose) # nll_val
-        print(f'epoch {epoch:3d}: ll_trn={-nll_trn:.4f}, ll_val={-metric:.4f}, ' +metrics)
+        print(f'epoch {epoch:3d}: ll_trn={-nll_trn:.4f}, ll_val={-metric:.4f}, rse_trn={metrics["rse_trn"]:.3f}, rse_val={metrics["rse_val"]:.3f}')
 
         if metric < best_metric:
             best_metric = metric

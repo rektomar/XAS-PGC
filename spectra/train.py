@@ -4,7 +4,7 @@ import torch
 from rdkit import RDLogger
 from utils.datasets import BASE_DIR, load_dataset
 from utils.train import train #, evaluate
-# from utils.evaluate import count_parameters
+from utils.evaluate import count_parameters
 
 
 from models import vae
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         print(dataset)
         print(json.dumps(hyperpars, indent=4))
         print(model)
-        # print(f'The number of parameters is {count_parameters(model)}.')
+        print(f'The number of parameters is {count_parameters(model)}.')
 
         train(model, loaders, hyperpars, BASE_DIR_TRN)
         # metrics = evaluate(loaders, hyperpars, BASE_DIR_TRN, compute_nll=True)

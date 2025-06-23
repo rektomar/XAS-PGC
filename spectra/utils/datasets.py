@@ -10,6 +10,9 @@ import torch.nn as nn
 from utils.broadening import batch_broadening
 
 KERNEL_WIDTH = 0.8
+MIN_E = 270
+MAX_E = 300
+N_GRID = 100
 
 BASE_DIR = 'results/'
 
@@ -22,7 +25,7 @@ def process_spectra(data_spectra):
     spectra1_stk = torch.split(spectra_stk[:2256,], shape_lst)
     spectra2_stk = torch.stack(torch.split(spectra_stk[2256:,], 500))
 
-    energies = torch.linspace(270, 300, 100)
+    energies = torch.linspace(MIN_E, MAX_E, N_GRID)
     sigma = torch.tensor(KERNEL_WIDTH)
 
     broadened_spectra1 = batch_broadening(spectra1_stk, sigma, energies)
