@@ -105,7 +105,7 @@ class LogStandardize(nn.Module):
         return (torch.log(x+self.log_eps) - self.mean)/self.std
     
     def inverse(self, z):
-        return torch.exp(self.std * z + self.mean) - self.log_eps
+        return torch.maximum(torch.exp(self.std * z + self.mean) - self.log_eps, torch.zeros_like(z))
 
 
 class TensorDataset(torch.utils.data.Dataset):

@@ -4,7 +4,8 @@
     "model_hpars": {
         "nd_x": 100,
         "nd_z": 16,
-        "nl": 5,
+        "nl": 6,
+        "distr": "normal",
         "device": "cuda"
     },
     "optimizer": "adam",
@@ -14,9 +15,9 @@
             0.9,
             0.999
         ],
-        "weight_decay": 1e-5
+        "weight_decay": 0e-7
     },
-    "standardize": "normal",
+    "transform": "normal",
     "num_epochs": 100,
     "batch_size": 256,
     "seed": 0

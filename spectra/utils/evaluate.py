@@ -24,10 +24,11 @@ def eval_rse(model, loader, transform):
 
         x = transform.inverse(x.to('cpu'))
         x_hat = transform.inverse(x_hat.to('cpu'))
+
         rse_tensor.append(rse(x, x_hat))
 
     rse_tensor = torch.cat(rse_tensor)
-    rse_tensor = rse_tensor[rse_tensor < rse_tensor.quantile(0.99)]  # filter outliers
+    rse_tensor = rse_tensor[rse_tensor < rse_tensor.quantile(0.99)]  # filter outliers, needs to be changed to 0.9 when using lognormal standardization
 
     return torch.mean(rse_tensor)
     
