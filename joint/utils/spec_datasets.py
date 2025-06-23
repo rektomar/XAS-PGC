@@ -112,6 +112,9 @@ def transform(x, mu, sigma):
         x_i['spec'] = (x_i['spec']-mu)/sigma  
     return x
 
+def inv_transform(x, mu, sigma): 
+    return sigma*x + mu
+
 def load_dataset(name, batch_size, split, seed=0, dir='data/', order='canonical'):
     x = DictDataset(torch.load(f'{dir}{name}_{order}.pt', weights_only=True))
 

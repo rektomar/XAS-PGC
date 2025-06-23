@@ -53,7 +53,12 @@ class BackFFNN(nn.Module):
         self.net_node = ffnn_decoder(nh_back, nd_node*nk_node,  nl_node, False)
         self.net_edge = ffnn_decoder(nh_back, nd_edge*nk_edge,  nl_edge, False)
         self.net_spec = ffnn_decoder(nh_back, 2*nd_spec, nl_spec, False) 
-        self.device = device
+
+        self.to(device)
+
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
 
     def forward(self, z):                                    
         h_back = self.net_back(z)                           
@@ -116,8 +121,13 @@ class HybridDecoder(nn.Module):
                  ):
         super(HybridDecoder, self).__init__()
         self.network = network
-        self.device = device
         self.eps = eps
+
+        self.to(device)
+    
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
 
     @torch.no_grad
     def forward_spec(self, x_spec: torch.Tensor, z: torch.Tensor, num_chunks: Optional[int]=None):
@@ -192,7 +202,12 @@ class ContinuousMixture(nn.Module):
         self.decoder = decoder
         self.sampler = sampler
         self.num_chunks = num_chunks
-        self.device = device
+        
+        self.to(device)
+    
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
 
     def forward(self,
                 x_node: torch.Tensor,
@@ -277,8 +292,11 @@ class PGCFFNNSpec(nn.Module):
         )
         self.mask = torch.tril(torch.ones(self.nd_node, self.nd_node, dtype=torch.bool), diagonal=-1)
 
-        self.device = device
         self.to(device)
+
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
 
     def forward(self, x: torch.Tensor, a: torch.Tensor, spec: torch.Tensor):
         return self.network(x, a[:, self.mask].view(-1, self.nd_edge), spec)

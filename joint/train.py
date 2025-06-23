@@ -6,6 +6,12 @@ from utils.spec_datasets import MOLECULAR_DATASETS, BASE_DIR, load_dataset
 from utils.train import train, evaluate
 from utils.evaluate import count_parameters
 
+# from models import cm_var_spec
+
+# MODELS = {
+#     **cm_var_spec.MODELS
+# }
+
 from models import cm_spec
 
 MODELS = {
