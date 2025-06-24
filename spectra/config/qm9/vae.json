@@ -3,8 +3,8 @@
     "model": "vae",
     "model_hpars": {
         "nd_x": 100,
-        "nd_z": 16,
-        "nl": 6,
+        "nd_z": 64,
+        "nl": 2,
         "distr": "normal",
         "device": "cuda"
     },

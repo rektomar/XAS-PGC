@@ -129,7 +129,7 @@ class VAE(nn.Module):
         posterior = self.encoder(x) # q(z|x)
         z = posterior.sample()
         generative = self.decoder(z)  # p(x|z)
-        return generative.sample()
+        return generative.mode  # this would not result into actual mode after we use lognormal transform on it
         
 MODELS = {
     'vae': VAE
