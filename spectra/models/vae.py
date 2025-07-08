@@ -60,7 +60,7 @@ class Decoder(nn.Module):
         if distr == 'normal':
             self.distr_parse = normal_parse_params
         elif distr == 'lognormal':
-            self.distr_parse = normal_parse_params
+            self.distr_parse = lognormal_parse_params
         else:
             raise f'{distr} not supported'
  
@@ -129,7 +129,7 @@ class VAE(nn.Module):
         posterior = self.encoder(x) # q(z|x)
         z = posterior.sample()
         generative = self.decoder(z)  # p(x|z)
-        return generative.mode  # this would not result into actual mode after we use lognormal transform on it
+        return generative.mode  # this does not result into actual mode after we use lognormal transform on it
         
 MODELS = {
     'vae': VAE

@@ -4,7 +4,7 @@ import torch.optim as optim
 
 from tqdm import tqdm
 
-from utils.evaluate import eval_metrics
+from utils.evaluate import eval_metrics, eval_visual
 
 
 IGNORED_HYPERPARS = [
@@ -85,5 +85,7 @@ def train(
             torch.save(model, path)
             best_model_path = path
             save_model = False
+
+    eval_visual(model, loaders['loader_tst'], loaders['transform'], hyperpars['model'])    
 
     return best_model_path

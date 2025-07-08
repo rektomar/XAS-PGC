@@ -8,9 +8,11 @@ from utils.evaluate import count_parameters
 
 
 from models import vae
+from models import cm
 
 MODELS = {
-    **vae.MODELS
+    **vae.MODELS,
+    **cm.MODELS
 }
 
 BASE_DIR_TRN = f'{BASE_DIR}trn/'
@@ -29,7 +31,7 @@ if __name__ == '__main__':
         with open(f'config/{dataset}/{backend}.json', 'r') as f:
             hyperpars = json.load(f)
 
-        loaders = load_dataset('qm9xas', hyperpars['batch_size'], [0.8, 0.1, 0.1], standardize=hyperpars['standardize'])
+        loaders = load_dataset('qm9xas', hyperpars['batch_size'], [0.8, 0.1, 0.1], standardize=hyperpars['transform'])
 
         model = MODELS[hyperpars['model']](**hyperpars['model_hpars'])
         print(dataset)
