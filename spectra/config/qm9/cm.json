@@ -1,0 +1,26 @@
+{
+    "dataset": "qm9xas",
+    "model": "cm",
+    "model_hpars": {
+        "nd_x": 100,
+        "nd_z": 64,
+        "nl": 2,
+        "nb": 8192,
+        "nc": 1,
+        "distr": "normal",
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hpars": {
+        "lr": 1e-3,
+        "betas": [
+            0.9,
+            0.999
+        ],
+        "weight_decay": 0e-7
+    },
+    "transform": "normal",
+    "num_epochs": 100,
+    "batch_size": 256,
+    "seed": 0
+}
