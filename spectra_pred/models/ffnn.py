@@ -1,0 +1,95 @@
+import torch
+import torch.nn as nn
+
+
+from torch.distributions import Normal
+
+from typing import Optional
+
+def ffnn(ni: int,
+        no: int,
+        nl: int,
+        batch_norm: bool,
+        act = nn.ReLU(),
+        final_act: Optional[any]=None
+        ):
+    nh = torch.arange(ni, no, (no - ni) / nl, dtype=torch.int)
+    net = nn.Sequential()
+    for i in range(len(nh) - 1):
+        net.append(nn.Linear(nh[i], nh[i + 1]))
+        net.append(act)
+        if batch_norm:
+            net.append(nn.BatchNorm1d(nh[i + 1]))
+    net.append(nn.Linear(nh[-1], no))
+    if final_act is not None:
+        net.append(final_act)
+    return net
+
+
+class FFNNZeroSort(nn.Module):
+    def __init__(self, nd_n, nk_n, nk_e, nd_y, nl, device='cuda', min_sigma=1e-8):
+        super(FFNNZeroSort, self).__init__()
+        self.nd_n = nd_n
+        self.nk_n = nk_n
+        self.nk_e = nk_e
+        nd_g = nd_n * nk_n + nd_n * (nd_n-1) * nk_e / 2
+        self.net = ffnn(nd_g, nd_y, nl, batch_norm=True, act=nn.ReLU())
+        self.net_mu = nn.Linear(nd_y, nd_y)
+        self.sigma_params = nn.Parameter(torch.randn(1, nd_y))
+        self.min_sigma = min_sigma
+
+        self.to(device)
+
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
+
+    def _flatten_graph(self, x: torch.Tensor, a: torch.Tensor):
+        x_ohe = nn.functional.one_hot(x.long(), self.nk_n)
+        a_ohe = nn.functional.one_hot(a.long(), self.nk_e)
+
+        x_ohe_flat = x_ohe.view(len(x_ohe), -1)
+        a_ohe_flat = a_ohe.view(len(a_ohe), -1)
+
+        return torch.cat((x_ohe_flat, a_ohe_flat), dim=-1)
+
+    def forward(self, x: torch.Tensor, a: torch.Tensor):
+        g = self._flatten_graph(x, a).float()
+        params = self.net(g)
+        mu = self.net_mu(params)
+        sigma = nn.functional.softplus(self.sigma_params) + self.min_sigma
+        sigma = sigma.expand(len(mu), -1)
+        return mu, sigma
+
+    def objective(self, x: torch.Tensor, a: torch.Tensor, y: torch.Tensor):
+        mu, sigma = self(x, a)
+        nll= -Normal(mu, sigma).log_prob(y).sum(-1)
+        return nll
+    
+    @torch.no_grad
+    def predict(self, x: torch.Tensor, a: torch.Tensor):
+        return self(x, a)[0]
+
+MODELS = {
+    'ffnn_zero_sort': FFNNZeroSort
+}
+
+
+if __name__ == '__main__':
+    import json
+
+    with open(f'config/qm9/ffnn_zero_sort.json', 'r') as f:
+        hyperpars = json.load(f)
+
+    hps = hyperpars['model_hpars']
+    model = FFNNZeroSort(**hps)
+    print(model)
+
+    from utils.spec_datasets import load_dataset
+
+    loaders = load_dataset('qm9xas', 256, [0.8, 0.1, 0.1])
+
+    batch = next(iter(loaders['loader_trn']))
+    x, a = batch['x'].to(model.device), batch['a'].to(model.device)
+
+    model(x, a)
