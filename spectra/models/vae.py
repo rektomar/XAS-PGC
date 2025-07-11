@@ -26,12 +26,18 @@ def ffnn(ni: int,
         net.append(final_act)
     return net
 
-def normal_parse_params(mu, sigma_params, min_sigma=1e-8):
-    sigma = nn.functional.softplus(sigma_params) + min_sigma
+def normal_parse_params(mu, sigma_params=None, min_sigma=1e-8):
+    if sigma_params is not None:
+        sigma = nn.functional.softplus(sigma_params) + min_sigma
+    else:
+        sigma = 0.1*torch.ones_like(mu)
     return Normal(mu, sigma)
 
-def lognormal_parse_params(mu, sigma_params, min_sigma=1e-8):
-    sigma = nn.functional.softplus(sigma_params) + min_sigma
+def lognormal_parse_params(mu, sigma_params=None, min_sigma=1e-8):
+    if sigma_params is not None:
+        sigma = nn.functional.softplus(sigma_params) + min_sigma
+    else:
+        sigma = 0.1*torch.ones_like(mu)
     return LogNormal(mu, sigma)
 
 
@@ -47,11 +53,55 @@ class Encoder(nn.Module):
         params = self.net(x)
         mu, sigma_params = self.net_mu(params), self.net_sigma(params)
         return normal_parse_params(mu, sigma_params, self.min_sigma)
+
+    
+class Decoder1(nn.Module):
+    """
+    This decoder has fixed variance of p(x|z).
+    """
+    def __init__(self, nd_x, nd_z, nl, distr='normal'):
+        super(Decoder1, self).__init__()
+        self.net = ffnn(nd_z, nd_x, nl, batch_norm=True, act=nn.ReLU())
+        self.net_mu = nn.Linear(nd_x, nd_x)
+
+        if distr == 'normal':
+            self.distr_parse = normal_parse_params
+        elif distr == 'lognormal':
+            self.distr_parse = lognormal_parse_params
+        else:
+            raise f'{distr} not supported'
+ 
+    def forward(self, x: Tensor):
+        params = self.net(x)
+        mu = self.net_mu(params)
+        return self.distr_parse(mu)
+
+
+class Decoder2(nn.Module):
+    def __init__(self, nd_x, nd_z, nl, distr='normal', min_sigma=1e-8):
+        super(Decoder2, self).__init__()
+        self.net = ffnn(nd_z, nd_x, nl, batch_norm=True, act=nn.ReLU())
+        self.net_mu = nn.Linear(nd_x, nd_x)
+        self.sigma_params = nn.Parameter(torch.randn(1, nd_x))
+        self.min_sigma = min_sigma
+
+        if distr == 'normal':
+            self.distr_parse = normal_parse_params
+        elif distr == 'lognormal':
+            self.distr_parse = lognormal_parse_params
+        else:
+            raise f'{distr} not supported'
+ 
+    def forward(self, x: Tensor):
+        params = self.net(x)
+        mu = self.net_mu(params)
+        sigma_params = self.sigma_params.expand(len(mu), -1)
+        return self.distr_parse(mu, sigma_params, self.min_sigma)
     
 
-class Decoder(nn.Module):
+class Decoder3(nn.Module):
     def __init__(self, nd_x, nd_z, nl, distr='normal', min_sigma=1e-8):
-        super(Decoder, self).__init__()
+        super(Decoder3, self).__init__()
         self.net = ffnn(nd_z, nd_x, nl, batch_norm=True, act=nn.ReLU())
         self.net_mu = nn.Linear(nd_x, nd_x)
         self.net_sigma = nn.Linear(nd_x, nd_x)
@@ -71,11 +121,18 @@ class Decoder(nn.Module):
 
 
 class VAE(nn.Module):
-    def __init__(self, nd_x, nd_z, nl, distr='normal', num_is=1000, beta=1, device='cpu'):
+    def __init__(self, nd_x, nd_z, nl, distr='normal', dec_var=1, num_is=1000, beta=1, device='cpu'):
         super(VAE, self).__init__()
 
         self.encoder = Encoder(nd_x, nd_z, nl)
-        self.decoder = Decoder(nd_x, nd_z, nl, distr=distr)
+        if dec_var == 1:
+            self.decoder = Decoder1(nd_x, nd_z, nl, distr=distr)
+        elif dec_var == 2:
+            self.decoder = Decoder2(nd_x, nd_z, nl, distr=distr)
+        elif dec_var == 3:
+            self.decoder = Decoder3(nd_x, nd_z, nl, distr=distr)
+        else:
+            raise "Invalid decoder variant"
 
         self.prior = Normal(torch.zeros(nd_z, device=device), torch.ones(nd_z, device=device))
         self.beta = beta  # KL div weight in ELBO
