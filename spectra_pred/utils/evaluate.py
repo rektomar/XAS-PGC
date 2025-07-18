@@ -1,7 +1,7 @@
 import torch
 import matplotlib.pyplot as plt
 
-from utils.spec_datasets import MIN_E, MAX_E, N_GRID, Identity
+from utils.datasets import MIN_E, MAX_E, N_GRID, Identity
 # 270, 300, 100
 
 DELTA_E = (MAX_E-MIN_E)/N_GRID
@@ -9,7 +9,6 @@ DELTA_E = (MAX_E-MIN_E)/N_GRID
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
 
 def rse(target, prediction):
     assert target.shape == prediction.shape

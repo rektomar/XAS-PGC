@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from utils.metrics import rse
+from utils.graphs import flatten_tril
 
 from torch.distributions import Normal
 
@@ -30,13 +32,16 @@ class FFNNZeroSort(nn.Module):
     def __init__(self, nd_n, nk_n, nk_e, nd_y, nl, device='cuda', min_sigma=1e-8):
         super(FFNNZeroSort, self).__init__()
         self.nd_n = nd_n
+        self.nd_l = int(nd_n * (nd_n-1) / 2)
         self.nk_n = nk_n
         self.nk_e = nk_e
-        nd_g = nd_n * nk_n + nd_n * (nd_n-1) * nk_e / 2
+        
+        nd_g = nd_n * nk_n + self.nd_l * nk_e 
         self.net = ffnn(nd_g, nd_y, nl, batch_norm=True, act=nn.ReLU())
         self.net_mu = nn.Linear(nd_y, nd_y)
         self.sigma_params = nn.Parameter(torch.randn(1, nd_y))
         self.min_sigma = min_sigma
+        self.m = torch.tril(torch.ones(nd_n, nd_n, dtype=torch.bool), diagonal=-1)
 
         self.to(device)
 
@@ -45,13 +50,14 @@ class FFNNZeroSort(nn.Module):
         return next(iter(self.parameters())).device
 
     def _flatten_graph(self, x: torch.Tensor, a: torch.Tensor):
+        l = a[..., self.m].view(-1, self.nd_l)
         x_ohe = nn.functional.one_hot(x.long(), self.nk_n)
-        a_ohe = nn.functional.one_hot(a.long(), self.nk_e)
+        l_ohe = nn.functional.one_hot(l.long(), self.nk_e)
 
         x_ohe_flat = x_ohe.view(len(x_ohe), -1)
-        a_ohe_flat = a_ohe.view(len(a_ohe), -1)
+        l_ohe_flat = l_ohe.view(len(l_ohe), -1)
 
-        return torch.cat((x_ohe_flat, a_ohe_flat), dim=-1)
+        return torch.cat((x_ohe_flat, l_ohe_flat), dim=-1)
 
     def forward(self, x: torch.Tensor, a: torch.Tensor):
         g = self._flatten_graph(x, a).float()
@@ -63,7 +69,7 @@ class FFNNZeroSort(nn.Module):
 
     def objective(self, x: torch.Tensor, a: torch.Tensor, y: torch.Tensor):
         mu, sigma = self(x, a)
-        nll= -Normal(mu, sigma).log_prob(y).sum(-1)
+        nll = -Normal(mu, sigma).log_prob(y).sum(-1)
         return nll
     
     @torch.no_grad
@@ -85,7 +91,7 @@ if __name__ == '__main__':
     model = FFNNZeroSort(**hps)
     print(model)
 
-    from utils.spec_datasets import load_dataset
+    from utils.datasets import load_dataset
 
     loaders = load_dataset('qm9xas', 256, [0.8, 0.1, 0.1])
 

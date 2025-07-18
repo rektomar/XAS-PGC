@@ -2,7 +2,7 @@ import json
 import torch
 
 from rdkit import RDLogger
-from utils.spec_datasets import BASE_DIR, load_dataset
+from utils.datasets import BASE_DIR, load_dataset
 from utils.train import train #, evaluate
 from utils.evaluate import count_parameters
 
