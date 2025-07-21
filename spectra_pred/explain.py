@@ -1,9 +1,15 @@
 import torch
 
 from utils.metrics import rse
+from utils.datasets import MIN_E, MAX_E, N_GRID
 
 
 EMPTY_CAT = 0
+
+
+def choose_range(lb_e, ub_e):
+    energies = torch.linspace(MIN_E, MAX_E, N_GRID)
+    return (energies >= lb_e) & (energies <= ub_e)
 
 def mae(y_target, y_prediction):
     return (y_target-y_prediction).abs().mean()
@@ -15,15 +21,15 @@ def mask_graph(x, a, node_mask):
     a_[..., :, ~node_mask] = EMPTY_CAT
     return x_, a_
 
-def predict(model, x, a, node_mask=None):
+def predict(model, x, a, out_mask, node_mask=None):
     if node_mask is None:
         x_masked, a_masked = x, a
     else:
         x_masked, a_masked = mask_graph(x, a, node_mask)
-    return model.predict(x_masked, a_masked)
+    return model.predict(x_masked, a_masked)[..., out_mask]
 
-def is_valid(model, x, a, node_mask, y_initial, threshold=0.1):
-    y_pred = predict(model, x, a, node_mask)
+def is_valid(model, x, a, out_mask, node_mask, y_initial, threshold=0.1):
+    y_pred = predict(model, x, a, out_mask, node_mask)
     return mae(y_initial, y_pred) < threshold
 
 def prepare_input(x, a):
@@ -34,9 +40,11 @@ def prepare_input(x, a):
     a = a.unsqueeze(0)
     return x, a, node_mask, n_atom
 
-def forward_search(model, x, a, threshold=0.2):
+def forward_search(model, x, a, out_mask=None, threshold=0.2):
+    if out_mask is None:
+        out_mask = choose_range(MIN_E, MAX_E)
     x, a, node_mask, n_atom = prepare_input(x, a)
-    y_initial = model.predict(x, a)
+    y_initial = predict(model, x, a, out_mask)
     stack = [(node_mask.clone(), 0)]
     print(f"Molecule size: {n_atom}")
 
@@ -47,9 +55,7 @@ def forward_search(model, x, a, threshold=0.2):
         
         if current_depth >= n_atom:
             result.append(current_node_mask.clone().int().tolist())
-
-            x_masked, a_masked = mask_graph(x, a, current_node_mask)
-            y_pred = model.predict(x_masked, a_masked)
+            y_pred = predict(model, x, a, out_mask, current_node_mask)
  
             print(f"FOUND SOLUTION! size: {current_node_mask.sum()}, mae: {mae(y_initial, y_pred).item():.3f}, mask: {current_node_mask.int().tolist()}")
             continue
@@ -57,7 +63,7 @@ def forward_search(model, x, a, threshold=0.2):
         stack.append((current_node_mask.clone(), current_depth+1))
 
         current_node_mask[current_depth] = False
-        if is_valid(model, x, a, current_node_mask, y_initial, threshold):
+        if is_valid(model, x, a, out_mask, current_node_mask, y_initial, threshold):
             stack.append((current_node_mask.clone(), current_depth+1))
     
     return result
@@ -77,4 +83,5 @@ if __name__ == '__main__':
     x, a, spec, smile = batch['x'][id], batch['a'][id], batch['spec'][id], batch['s'][id]
     print(smile)
 
-    forward_search(model.cpu(), x, a)
+    e_mask = choose_range(280, 290)
+    forward_search(model.cpu(), x, a, e_mask)
