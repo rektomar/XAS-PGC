@@ -1,0 +1,26 @@
+{
+    "dataset": "qm9xas",
+    "order": "canonical",
+    "model": "ffnn_zero_sort_mask",
+    "model_hpars": {
+        "nd_n": 9,
+        "nk_n": 5,
+        "nk_e": 4,
+        "nd_y": 100,
+        "nl": 8,
+        "device": "cuda"
+    },
+    "optimizer": "adam",
+    "optimizer_hpars": {
+        "lr": 1e-2,
+        "betas": [
+            0.9,
+            0.999
+        ],
+        "weight_decay": 0e-4
+    },
+    "transform": "normal",
+    "num_epochs": 100,
+    "batch_size": 256,
+    "seed": 0
+}
