@@ -90,6 +90,8 @@ def preprocess(dataset, mol_path, spec_path, max_atom, atom_list, order='canonic
     data_list = []
 
     for sml, spec in tqdm(zip(smls_list, spectra)):
+        if torch.sum(spec) == 0:
+            continue
         mol = Chem.MolFromSmiles(sml)
         Chem.Kekulize(mol)
         s = Chem.MolToSmiles(mol, kekuleSmiles=True, canonical=True)
