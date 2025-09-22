@@ -76,7 +76,7 @@ class FFNNZeroSortMasked(nn.Module):
         sigma = sigma.expand(len(mu), -1)
         return mu, sigma
     
-    def create_mask(self, x, p=0.75):
+    def create_mask(self, x, p=0.5):
         return torch.rand(x.shape) < p
 
     def objective(self, x: torch.Tensor, a: torch.Tensor, y: torch.Tensor):
