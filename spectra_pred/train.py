@@ -8,9 +8,11 @@ from utils.evaluate import count_parameters
 
 
 from models import ffnn
+from models import ffnn_masked
 
 MODELS = {
-    **ffnn.MODELS
+    **ffnn.MODELS,
+    **ffnn_masked.MODELS
 }
 
 BASE_DIR_TRN = f'{BASE_DIR}trn/'
@@ -22,7 +24,7 @@ if __name__ == '__main__':
     dataset = 'qm9'
 
     backends = [
-        'ffnn_zero_sort'
+        'ffnn_zero_sort_mask'
     ]
 
     for backend in backends:
